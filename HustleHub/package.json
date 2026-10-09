@@ -1,0 +1,26 @@
+{
+  "name": "hustlehub-part1",
+  "version": "1.0.0",
+  "private": true,
+  "description": "HustleHub+ Part 1 secure backend foundations",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.cjs",
+    "start": "node --env-file=.env src/server.cjs",
+    "dev": "node --watch --env-file=.env src/server.cjs",
+    "test": "node --test test/*.test.cjs",
+    "test:postman": "node scripts/run-postman.cjs"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.0",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3"
+  },
+  "devDependencies": {
+    "newman": "^6.2.2"
+  }
+}

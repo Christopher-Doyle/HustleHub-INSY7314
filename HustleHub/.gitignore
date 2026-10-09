@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.*
+!.env.example
+certs/*
+!certs/.gitkeep
+coverage/
+*.log
+.connection-check.tmp
+evidence/private/
