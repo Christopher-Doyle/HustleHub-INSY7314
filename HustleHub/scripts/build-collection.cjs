@@ -38,7 +38,7 @@ add('20 - Oversized request', 'POST', '/api/auth/register', 413, { ...good, full
 add('21 - Unknown route', 'GET', '/api/does-not-exist', 404);
 add('22 - Register default client', 'POST', '/api/auth/register', 201, { fullName: 'Chris Doyle', email: 'client.{{testEmail}}', password: '{{testPassword}}' }, { tests: ["pm.test('Default client role', () => pm.expect(pm.response.json().data.user.role).to.eql('client'));"] });
 const collection = {
-  info: { name: 'HustleHub+ | Part 1 Secure Foundations', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json', description: 'Run in order. Request 01 generates a unique test email for every run. Request 04 saves the JWT; request 05 uses it. Trust certs/localhost.pem in Postman before running. All credentials are disposable test data. Backend uses in-memory storage. Repeated runs within 15 minutes can trigger the 30-attempt rate limit; restart the local demo server or wait.' },
+  info: { name: 'HustleHub+ | Part 1 Secure Foundations', schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json', description: 'Run in order. Request 01 generates a unique test email for every run. Request 04 saves the JWT; request 05 uses it. Trust certs/localhost.pem in Postman before running. All credentials are disposable test data. Backend uses MongoDB persistence. Repeated runs within 15 minutes can trigger the 30-attempt rate limit; wait before retrying.' },
   variable: [{ key: 'baseUrl', value: 'https://localhost:4000' }, { key: 'testEmail', value: '' }, { key: 'testPassword', value: 'DemoPassphrase!7314' }, { key: 'accessToken', value: '' }], item: items
 };
 fs.mkdirSync(path.join(__dirname, '../postman'), { recursive: true });
