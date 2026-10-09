@@ -9,7 +9,7 @@ async function main() {
   const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
   const key = fs.readFileSync(path.join(__dirname, '../certs/localhost-key.pem'));
   const config = loadConfig();
-  await connectDatabase(config.mongodbUri);
+  await connectDatabase(config.mongodbUri, { dnsServers: config.mongodbDnsServers });
   const app = await createApp(config);
   const server = https.createServer({ cert, key }, app);
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));

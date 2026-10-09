@@ -60,9 +60,12 @@ PORT=4000
 HOST=127.0.0.1
 JWT_SECRET=replace_with_at_least_64_hexadecimal_characters
 MONGODB_URI=replace_with_mongodb_connection_string
+MONGODB_DNS_SERVERS=
 ```
 
 For MongoDB Atlas, replace `MONGODB_URI` in the local `.env` with the Atlas connection URI. Keep credentials only in `.env`. Atlas must allow the developer's current IP address and the database user must have suitable access. A normal `mongodb://` or `mongodb+srv://` URI is accepted.
+
+`MONGODB_DNS_SERVERS` is optional. Leave it blank normally. If Node cannot resolve Atlas SRV records even though the operating system can, set it to trusted comma-separated DNS server IP addresses, for example `1.1.1.1,8.8.8.8`.
 
 Start the HTTPS API:
 

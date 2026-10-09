@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
+const dns = require('node:dns');
 
 let connectionPromise;
 
-async function connectDatabase(uri) {
+async function connectDatabase(uri, { dnsServers = [] } = {}) {
   if (mongoose.connection.readyState === 1) return mongoose.connection;
   if (!connectionPromise) {
+    if (uri.startsWith('mongodb+srv://') && dnsServers.length) dns.setServers(dnsServers);
     connectionPromise = mongoose.connect(uri, {
       serverSelectionTimeoutMS: 10000
     }).then(() => mongoose.connection).catch(error => {

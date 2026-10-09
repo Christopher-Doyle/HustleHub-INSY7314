@@ -169,6 +169,7 @@ test('unexpected errors hide stack, file paths, and secrets', () => {
 test('insecure JWT configuration fails closed', () => {
   assert.throws(() => loadConfig({ JWT_SECRET: 'password', MONGODB_URI: 'mongodb://127.0.0.1/test' }));
   assert.throws(() => loadConfig({ JWT_SECRET: randomBytes(32).toString('hex') }));
+  assert.throws(() => loadConfig({ JWT_SECRET: randomBytes(32).toString('hex'), MONGODB_URI: 'mongodb+srv://example.mongodb.net/test', MONGODB_DNS_SERVERS: 'not-an-ip' }));
 });
 
 test('RBAC distinguishes unauthenticated, forbidden, and allowed roles', () => {
