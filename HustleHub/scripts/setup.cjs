@@ -4,7 +4,11 @@ const { randomBytes } = require('node:crypto');
 const { spawnSync } = require('node:child_process');
 const root = path.join(__dirname, '..');
 const env = path.join(root, '.env');
-if (!fs.existsSync(env)) fs.writeFileSync(env, `PORT=4000\nHOST=127.0.0.1\nJWT_SECRET=${randomBytes(32).toString('hex')}\n`, { mode: 0o600, flag: 'wx' });
+if (!fs.existsSync(env)) {
+  fs.writeFileSync(env, `PORT=4000\nHOST=127.0.0.1\nJWT_SECRET=${randomBytes(32).toString('hex')}\nMONGODB_URI=mongodb://127.0.0.1:27017/hustlehub\n`, { mode: 0o600, flag: 'wx' });
+} else if (!/^MONGODB_URI=/m.test(fs.readFileSync(env, 'utf8'))) {
+  fs.appendFileSync(env, 'MONGODB_URI=mongodb://127.0.0.1:27017/hustlehub\n');
+}
 const certDir = path.join(root, 'certs');
 fs.mkdirSync(certDir, { recursive: true });
 const key = path.join(certDir, 'localhost-key.pem');
