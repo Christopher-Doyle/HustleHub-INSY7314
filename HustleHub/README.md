@@ -1,340 +1,162 @@
-# HustleHub+ — Part 1: Secure Foundations
+# HustleHub+ — INSY7314 Part 2
 
-**Group Leader:** ST10445478 – Christopher Doyle  
-**Member:** ST10446445 – Daniel Watson & ST10446382 - Pabi Kerns
+HustleHub+ is a freelance marketplace for clients and freelancers. This branch contains the shared Part 2 database, authentication, role-based access control, and backend security foundation. Gig CRUD, booking workflows, transaction workflows, income calculations, and the React interface are separate team responsibilities and are not implemented here.
 
-## 1. About HustleHub+
+## Implemented foundation
 
-HustleHub+ is a freelance marketplace that will allow freelancers to advertise their services and clients to browse and book these services.
+- MongoDB connection through Mongoose.
+- Shared `User`, `Gig`, `Booking`, and `Transaction` schemas.
+- MongoDB-backed registration, login, and protected profile lookup.
+- bcrypt password hashing with cost factor 12.
+- Signed 15-minute HS256 JWTs with issuer and audience checks.
+- Reusable role-based access-control middleware.
+- HTTPS, Helmet headers, an explicit Content Security Policy, request limits, and authentication rate limiting.
+- Controlled JSON errors that do not expose secrets, hashes, stack traces, or file paths.
 
-The full system will eventually include gigs, bookings, transactions, freelancer income tracking and estimated tax calculations. Part 1 focuses only on creating a secure backend foundation for the system.
-
-Since HustleHub+ will handle user accounts and financial information in later stages, security needs to be included from the start of the project.
-
-The main users of the system are:
-
-- **Clients** – browse services and make bookings.
-- **Freelancers** – advertise services and manage their work.
-- **Administrators** – manage parts of the platform in later stages.
-
-For Part 1, users can register as either a `client` or `freelancer`. Users cannot register themselves as administrators.
-
-Part 1 uses temporary in-memory storage. This means that registered accounts are removed when the server restarts. MongoDB will be added during Part 2.
-
----
-
-## 2. Backend Structure
-
-The backend was developed using **Node.js and Express**.
-
-The project is separated into different folders so that the code is easier to understand, maintain and expand later.
+## Project structure
 
 ```text
 HustleHub/
   src/
-    controllers/
-    middleware/
-    models/
-    routes/
-    services/
-    utils/
-
-    app.cjs
-    config.cjs
-    server.cjs
-
+    controllers/          HTTP response handling
+    middleware/           authentication, RBAC, validation, errors
+    models/               shared Mongoose models
+    routes/               Express route definitions
+    services/             authentication business logic
+    utils/                shared HTTP helpers
+    app.cjs               Express and security configuration
+    config.cjs            environment validation
+    database.cjs          MongoDB connection lifecycle
+    server.cjs            HTTPS server startup
   scripts/
-    setup.cjs
-    build-collection.cjs
-    run-postman.cjs
-
   test/
-    api.test.cjs
-
   postman/
-    HustleHub-Part1.postman_collection.json
-
-  certs/
-
+  certs/                  local generated certificates are ignored
   .env.example
-  .gitignore
-  package.json
-  package-lock.json
-  README.md
-  ```
-The main parts of the backend are:
-- Routes decide which endpoint is being requested.
-- Controllers manage requests and responses.
-- Services contain the main authentication logic.
-- Models manage the temporary user storage.
-- Middleware handles authentication, validation and errors.
-- Utils contain reusable helper functions.
-This structure will also make it easier to replace the temporary storage with MongoDB later.
+```
 
----
+## Requirements
 
-## 3. Running the Application
-
-The following software is required:
-- Node.js
+- Node.js 24 or newer
 - npm
-- Visual Studio Code
-- Git
-- Postman Desktop
-- OpenSSL
-Open the HustleHub project in Visual Studio Code and open a terminal inside the project folder.
-Install the dependencies:
+- MongoDB Atlas or a local MongoDB instance
+- Git for Windows/OpenSSL for local certificate generation
+
+## Environment and setup
+
+Install the locked dependencies and generate local configuration and HTTPS certificates:
+
+```powershell
 npm.cmd ci
-Run the setup:
 npm.cmd run setup
-Start the application:
+```
+
+Setup creates `.env`, `certs/localhost.pem`, and `certs/localhost-key.pem` when needed. Existing secrets and complete certificate pairs are preserved. Do not commit `.env` or private keys.
+
+Required variables are documented in `.env.example`:
+
+```dotenv
+PORT=4000
+HOST=127.0.0.1
+JWT_SECRET=replace_with_at_least_64_hexadecimal_characters
+MONGODB_URI=replace_with_mongodb_connection_string
+```
+
+For MongoDB Atlas, replace `MONGODB_URI` in the local `.env` with the Atlas connection URI. Keep credentials only in `.env`. Atlas must allow the developer's current IP address and the database user must have suitable access. A normal `mongodb://` or `mongodb+srv://` URI is accepted.
+
+Start the HTTPS API:
+
+```powershell
 npm.cmd start
-The API will run at:
-https://localhost:4000
-The server uses HTTPS rather than normal HTTP.
-To stop the server, press:
-Ctrl+C
-Because Part 1 uses in-memory storage, all accounts are removed when the server restarts.
+```
 
----
+The default address is `https://localhost:4000`. Startup fails closed if the JWT secret or MongoDB URI is missing or invalid, or if MongoDB cannot be reached.
 
-## 4. API Endpoints
+## Database architecture
 
-Method	Endpoint	Purpose	Authentication
-GET	/api/health	Checks if the API is running	No
-POST	/api/auth/register	Registers a new user	No
-POST	/api/auth/login	Logs a user in and generates a JWT	No
-GET	/api/auth/me	Displays the logged-in user's profile	Yes
+`src/database.cjs` owns the reusable Mongoose connection lifecycle. `src/server.cjs` connects before accepting requests and disconnects during graceful shutdown.
 
+The shared models are:
 
-Register Example
-{
-  "fullName": "Aisha Khan",
-  "email": "aisha@example.com",
-  "password": "DemoPassphrase!7314",
-  "role": "freelancer"
-}
-A successful registration returns:
-201 Created
-Login Example
-{
-  "email": "aisha@example.com",
-  "password": "DemoPassphrase!7314"
-}
-A successful login returns a JWT which is then used to access protected routes.
-Protected Route
-The /api/auth/me route requires the following header:
-Authorization: Bearer <token>
-If the JWT is valid, the user's profile is returned. If the token is missing, invalid or expired, the API returns a 401 Unauthorized response.
+- `User`: full name, canonical unique email, hidden password hash, and `client`, `freelancer`, or `admin` role.
+- `Gig`: freelancer reference, title, description, category, and non-negative price.
+- `Booking`: gig, client, and freelancer references; price; and controlled status.
+- `Transaction`: booking, gig, client, and freelancer references; amount; and controlled status.
 
----
+Schemas provide required fields, enums, references, bounds, timestamps, and common query indexes. They deliberately contain no Gig CRUD, booking, transaction, or income business logic.
 
-## 5. Password Security
+## Authentication flow
 
-Passwords are protected using bcryptjs.
-When a user registers, their password is hashed before it is stored. The original plain-text password is never saved.
-A bcrypt cost factor of 12 is used and each password receives its own salt.
-During login, bcrypt.compare() is used to compare the password entered by the user with the stored hash.
-Passwords must contain at least 12 characters and invalid password input is rejected.
-This is important because even if stored user data was accessed, the attacker would not directly see the user's original password.
+### Registration
 
----
+`POST /api/auth/register` validates a strict JSON object, canonicalises the email, rejects unknown fields and public admin registration, hashes the password, and creates the MongoDB user. Only safe public fields are returned.
 
-## 6. JWT Authentication
+Public roles are `client` and `freelancer`. Administrative users must be provisioned through a separate trusted process rather than public registration.
 
-HustleHub+ uses JSON Web Tokens (JWTs) to identify authenticated users.
-When a user logs in successfully, the server generates a signed JWT.
-The token includes information such as:
-- User ID
-- User role
-- Issue time
-- Expiry time
-- Issuer
-- Audience
-The token uses the HS256 algorithm and expires after approximately 15 minutes.
-Each protected request checks that the token:
-- Has a valid signature.
-- Has not expired.
-- Uses the correct algorithm.
-- Has the correct issuer and audience.
-- Belongs to an existing user.
-JWTs are signed but not encrypted. For this reason, passwords and other sensitive information are never stored inside the token.
+### Login
 
----
+`POST /api/auth/login` looks up the canonical email and compares the submitted password with the stored bcrypt hash. Unknown accounts and wrong passwords use the same safe `401` response. A successful login returns a short-lived Bearer token and safe user fields.
 
-## 7. Input Validation and Sanitisation
+### Protected profile
 
-All registration and login information is checked before it is processed.
-The API rejects input such as:
-- Missing fields.
-- Invalid email addresses.
-- Invalid roles.
-- Unexpected fields.
-- Arrays or objects where text is expected.
-- Malformed JSON.
-- Oversized requests.
-- Unsupported content types.
-- Malicious input.
-For example, input such as:
-{
-  "email": {
-    "$ne": null
-  }
-}
-will be rejected.
-Email addresses are also trimmed and converted to lowercase so that email addresses such as:
-User@example.com
-user@example.com
-are treated as the same account.
-Validation is performed before passwords are hashed or user information is stored.
+`GET /api/auth/me` verifies the Bearer token's signature, expiry, HS256 algorithm, issuer, audience, subject, and claims. It then reloads the current user from MongoDB and confirms the stored role still matches the token.
 
----
+## Role-based access control
 
-## 8. Error Handling
+Authentication answers who the user is. `requireRole` then checks whether that authenticated user has an allowed role:
 
-The application uses controlled error handling so that internal system information is not shown to the user.
-The API does not expose:
-- Stack traces.
-- File paths.
-- Environment variables.
-- Passwords.
-- Password hashes.
-- JWT secrets.
-- Internal configuration information.
-For example, an incorrect password and an unknown email address both return:
-{
-  "success": false,
-  "error": {
-    "code": "INVALID_CREDENTIALS",
-    "message": "Invalid email or password."
-  }
-}
-This prevents the API from giving unnecessary information about whether an account exists.
-The main HTTP status codes used are:
-Status	Meaning
-400	Invalid input
-401	Authentication failed
-404	Endpoint not found
-409	Email already registered
-413	Request too large
-415	Unsupported content type
-429	Too many requests
-500	Unexpected server error
+```js
+router.post('/example', protect(User, config), requireRole('freelancer'), controller);
+```
 
----
+- Missing authentication returns `401 UNAUTHENTICATED`.
+- An authenticated user with the wrong role returns `403 FORBIDDEN`.
+- Multiple roles can be allowed, for example `requireRole('freelancer', 'admin')`.
 
-## 9. HTTPS
+Future Gig, booking, and admin routes should compose authentication before RBAC.
 
-The HustleHub+ API runs over HTTPS using a locally generated SSL certificate.
-HTTPS encrypts information sent between the client and the server. This is important because information such as passwords and JWTs should not be sent across an unsecured connection.
-The local certificate supports:
-localhost
-127.0.0.1
-The application requires TLS 1.2 or newer.
-A self-signed certificate is suitable for this local university project. A real deployed version of HustleHub+ would use a certificate from a trusted certificate authority.
-HTTPS works together with password hashing and authentication. HTTPS protects information while it is being transferred, while bcrypt protects stored passwords and JWTs protect authenticated routes.
+## Security controls
 
----
+- Passwords are never stored in plaintext; only bcrypt hashes are persisted.
+- Password input is limited to 72 UTF-8 bytes to avoid silent bcrypt truncation.
+- JWT verification pins HS256 and checks expiry, issuer, and audience.
+- Protected requests reload the account instead of trusting token claims alone.
+- Authentication endpoints are limited to 30 attempts per IP per 15 minutes by default.
+- JSON request bodies are limited to 10 KB and compressed bodies are rejected.
+- Responses use `Cache-Control: no-store` and request IDs.
+- Helmet supplies security headers and removes framework-identifying headers.
+- CSP defaults content, scripts, styles, and connections to the same origin; objects and framing are blocked.
+- Validation rejects unknown keys, nested privilege input, incorrect types, malformed JSON, and unsupported content types.
 
-## 10. Additional Security
+The CSP is intentionally strict for the current API. When the React client origin and production asset sources are known, add only those explicit origins to the relevant directives; do not disable CSP.
 
-A few extra security controls were also added.
-Helmet
-Helmet is used to add security-related HTTP headers and reduce unnecessary information being exposed about the server.
-Rate Limiting
-Registration and login endpoints are rate limited.
-The current limit is:
-30 requests per IP address every 15 minutes
-If the limit is exceeded, the API returns:
-429 Too Many Requests
-This helps reduce repeated login and registration attempts.
-Cache Protection
-Authentication responses use:
-Cache-Control: no-store
-This helps prevent sensitive authentication responses from being saved in caches.
-Request Size Limits
-The API limits the size of incoming requests to reduce the risk of very large requests being used against the server.
+## Tests
 
----
+Run all backend tests with:
 
-## 11. Testing
-
-The API was tested using both automated tests and Postman.
-The automated tests can be run using:
+```powershell
 npm.cmd test
-Testing includes:
-- Successful registration.
-- Successful login.
-- JWT generation.
-- Protected profile access.
-- Duplicate email registration.
-- Incorrect passwords.
-- Missing JWTs.
-- Invalid JWTs.
-- Invalid input.
-- Malicious input.
-- Safe error responses.
-The Postman collection is located at:
-postman/HustleHub-Part1.postman_collection.json
-Postman was also used to manually demonstrate that the registration, login and protected endpoints work correctly.
-Postman Setup
-In Postman Desktop, go to:
-Settings → Certificates
-Add:
-certs/localhost.pem
-as the CA certificate.
-SSL certificate verification should remain enabled.
-The API base URL is:
-https://localhost:4000
-The Postman collection automatically saves the JWT after a successful login so that it can be used by the protected profile request.
+```
 
----
+Tests use `mongodb-memory-server`, a recognised development-only package, to create an isolated temporary MongoDB. They never connect to Atlas or team data. Coverage includes MongoDB registration and login, hash storage, duplicate users, public roles, rejected admin registration, JWT behavior, protected profile lookup, invalid tokens and inputs, RBAC outcomes, security headers/CSP, safe errors, rate limiting, and shared schema validation.
 
-## 12. Part 1 Limitations
+The existing Part 1 Postman collection remains under `postman/`. Final Part 2 Newman/evidence work belongs to the relevant team member and is not claimed here.
 
-Part 1 is only the secure backend foundation of HustleHub+.
-The following features will be added in later stages:
-- MongoDB database storage.
-- React frontend.
-- Gig management.
-- Bookings.
-- Transactions.
-- Freelancer income tracking.
-- Estimated tax calculations.
-- Full role-based access control.
-- Docker.
-- CI/CD.
-- Monitoring and logging improvements.
-The current in-memory user storage is therefore temporary and will be replaced with MongoDB during Part 2.
+## Current API endpoints
 
----
+| Method | Endpoint | Purpose | Authentication |
+|---|---|---|---|
+| `GET` | `/api/health` | Health check | No |
+| `POST` | `/api/auth/register` | Register client or freelancer | No |
+| `POST` | `/api/auth/login` | Log in and obtain JWT | No |
+| `GET` | `/api/auth/me` | Return current MongoDB user | Bearer JWT |
 
-## 13. Testing Evidence
+## Team boundaries
 
-Screenshots showing the API and Postman testing are included with the Part 1 submission documentation.
+This branch provides models and security primitives for the team. It does not claim completion of:
 
----
-
-## 14. Demonstration Video
-
-YouTube Demonstration Link: 
-https://youtu.be/bl21BFtY164
-
-The demonstration video shows:
-- The API running successfully.
-- HTTPS being used.
-- User registration.
-- User login.
-- JWT generation.
-- The protected profile route.
-- Invalid or unauthorised requests being rejected.
-
----
-
-## 15. References
-
-bcrypt.js, 2026. bcrypt.js documentation. [online] Available at: https://github.com/dcodeIO/bcrypt.js [Accessed 3 September 2026].
-Express, 2026. Express error handling. [online] Available at: https://expressjs.com/en/guide/error-handling/ [Accessed 3 September 2026].
-jsonwebtoken, 2026. node-jsonwebtoken documentation. [online] Available at: https://github.com/auth0/node-jsonwebtoken [Accessed 3 September 2026].
-Postman, 2026. Certificates. [online] Available at: https://learning.postman.com/docs/sending-requests/certificates/ [Accessed 3 September 2026].
-Postman, 2026. Test scripts. [online] Available at: https://learning.postman.com/docs/tests-and-scripts/write-scripts/test-scripts/ [Accessed 3 September 2026].
+- Gig CRUD, Gig ownership logic, or Gig React components.
+- Booking or transaction workflows.
+- Freelancer income calculations.
+- Booking/transaction React components.
+- Final Newman evidence.
