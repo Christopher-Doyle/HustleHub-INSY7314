@@ -3,12 +3,12 @@ const { validateAuthInput } = require('../middleware/validateAuthInput.cjs');
 const { protect } = require('../middleware/authMiddleware.cjs');
 const { createAuthController } = require('../controllers/authController.cjs');
 
-function authRoutes(service, store, config, limiter) {
+function authRoutes(service, User, config, limiter) {
   const router = Router();
   const controller = createAuthController(service);
   router.post('/register', limiter, validateAuthInput('register'), controller.register);
   router.post('/login', limiter, validateAuthInput('login'), controller.login);
-  router.get('/me', protect(store, config), controller.me);
+  router.get('/me', protect(User, config), controller.me);
   return router;
 }
 module.exports = { authRoutes };

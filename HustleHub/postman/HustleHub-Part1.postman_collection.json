@@ -2,7 +2,7 @@
   "info": {
     "name": "HustleHub+ | Part 1 Secure Foundations",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Run in order. Request 01 generates a unique test email for every run. Request 04 saves the JWT; request 05 uses it. Trust certs/localhost.pem in Postman before running. All credentials are disposable test data. Backend uses in-memory storage. Repeated runs within 15 minutes can trigger the 30-attempt rate limit; restart the local demo server or wait."
+    "description": "Run in order. Request 01 generates a unique test email for every run. Request 04 saves the JWT; request 05 uses it. Trust certs/localhost.pem in Postman before running. All credentials are disposable test data. Backend uses MongoDB persistence. Repeated runs within 15 minutes can trigger the 30-attempt rate limit; wait before retrying."
   },
   "variable": [
     {

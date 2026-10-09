@@ -7,16 +7,17 @@ const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 const { createApp } = require('../src/app.cjs');
 const { loadConfig } = require('../src/config.cjs');
-const { UserStore } = require('../src/models/userStore.cjs');
+const { connectDatabase, disconnectDatabase } = require('../src/database.cjs');
+const { User } = require('../src/models/user.cjs');
+const { requireRole } = require('../src/middleware/requireRole.cjs');
 const { errorHandler } = require('../src/middleware/errorHandler.cjs');
 const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
 const key = fs.readFileSync(path.join(__dirname, '../certs/localhost-key.pem'));
-const config = loadConfig({ JWT_SECRET: randomBytes(32).toString('hex') });
-const store = new UserStore();
 const credentials = { fullName: 'Aisha Khan', email: 'aisha@example.com', password: 'DemoPassphrase!7314', role: 'freelancer' };
-let server, port, token, user;
+let mongo, config, server, port, token, user;
 
 function request(method, route, body, headers = {}, target = port, ca = cert) {
   return new Promise((resolve, reject) => {
@@ -31,11 +32,19 @@ function request(method, route, body, headers = {}, target = port, ca = cert) {
   });
 }
 before(async () => {
-  server = https.createServer({ key, cert, minVersion: 'TLSv1.2' }, await createApp(config, { store, rateLimitMax: 200 }));
+  mongo = await MongoMemoryServer.create();
+  config = loadConfig({ JWT_SECRET: randomBytes(32).toString('hex'), MONGODB_URI: mongo.getUri() });
+  await connectDatabase(config.mongodbUri);
+  await User.init();
+  server = https.createServer({ key, cert, minVersion: 'TLSv1.2' }, await createApp(config, { User, rateLimitMax: 200 }));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   port = server.address().port;
 });
-after(() => new Promise(resolve => server.close(resolve)));
+after(async () => {
+  await new Promise(resolve => server.close(resolve));
+  await disconnectDatabase();
+  await mongo.stop();
+});
 
 test('HTTPS certificate is verified; security headers and no caching', async () => {
   const r = await request('GET', '/api/health');
@@ -53,7 +62,7 @@ test('registration normalizes email and stores only a salted cost-12 hash', asyn
   assert.equal(user.email, credentials.email);
   assert.equal(user.role, 'freelancer');
   assert.equal(user.passwordHash, undefined);
-  const stored = store.findByEmail(credentials.email);
+  const stored = await User.findOne({ email: credentials.email }).select('+passwordHash');
   assert.equal(stored.password, undefined);
   assert.notEqual(stored.passwordHash, credentials.password);
   assert.equal(bcrypt.getRounds(stored.passwordHash), 12);
@@ -65,6 +74,14 @@ test('duplicate and concurrent duplicate registrations return 409', async () => 
   const body = { ...credentials, email: 'race@example.com' };
   const results = await Promise.all([request('POST', '/api/auth/register', body), request('POST', '/api/auth/register', body)]);
   assert.deepEqual(results.map(r => r.status).sort(), [201, 409]);
+});
+test('client registration works and public admin registration is rejected', async () => {
+  const client = await request('POST', '/api/auth/register', { ...credentials, email: 'client@example.com', role: 'client' });
+  const admin = await request('POST', '/api/auth/register', { ...credentials, email: 'admin@example.com', role: 'admin' });
+  assert.equal(client.status, 201);
+  assert.equal(client.body.data.user.role, 'client');
+  assert.equal(admin.status, 400);
+  assert.equal(await User.exists({ email: 'admin@example.com' }), null);
 });
 test('login produces a signed 15-minute token with identity and role; profile works', async () => {
   const r = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
@@ -123,7 +140,7 @@ test('malformed JSON, wrong content type, large body, and unknown routes return 
   assert.equal((await request('GET', '/not-an-endpoint')).status, 404);
 });
 test('rate limiter returns safe 429 and Retry-After', async () => {
-  const limited = https.createServer({ key, cert }, await createApp(config, { rateLimitMax: 2 }));
+  const limited = https.createServer({ key, cert }, await createApp(config, { User, rateLimitMax: 2 }));
   await new Promise(resolve => limited.listen(0, '127.0.0.1', resolve));
   try {
     const p = limited.address().port;
@@ -134,7 +151,7 @@ test('rate limiter returns safe 429 and Retry-After', async () => {
   } finally { await new Promise(resolve => limited.close(resolve)); }
 });
 test('plain HTTP is refused even if app is mounted on an HTTP listener', async () => {
-  const plain = http.createServer(await createApp(config));
+  const plain = http.createServer(await createApp(config, { User }));
   await new Promise(resolve => plain.listen(0, '127.0.0.1', resolve));
   try {
     const status = await new Promise((resolve, reject) => http.get(`http://127.0.0.1:${plain.address().port}/api/health`, res => { res.resume(); resolve(res.statusCode); }).on('error', reject));
@@ -150,5 +167,27 @@ test('unexpected errors hide stack, file paths, and secrets', () => {
   assert.ok(!JSON.stringify(body).includes('private'));
 });
 test('insecure JWT configuration fails closed', () => {
-  assert.throws(() => loadConfig({ JWT_SECRET: 'password' }));
+  assert.throws(() => loadConfig({ JWT_SECRET: 'password', MONGODB_URI: 'mongodb://127.0.0.1/test' }));
+  assert.throws(() => loadConfig({ JWT_SECRET: randomBytes(32).toString('hex') }));
+  assert.throws(() => loadConfig({ JWT_SECRET: randomBytes(32).toString('hex'), MONGODB_URI: 'mongodb+srv://example.mongodb.net/test', MONGODB_DNS_SERVERS: 'not-an-ip' }));
+});
+
+test('RBAC distinguishes unauthenticated, forbidden, and allowed roles', () => {
+  const run = (allowed, role) => {
+    let error;
+    let allowedThrough = false;
+    requireRole(...allowed)({ user: role ? { role } : undefined }, {}, value => {
+      error = value;
+      if (!value) allowedThrough = true;
+    });
+    return { error, allowedThrough };
+  };
+  assert.equal(run(['client'], undefined).error.status, 401);
+  for (const role of ['client', 'freelancer', 'admin']) {
+    assert.equal(run([role], role).allowedThrough, true);
+    for (const other of ['client', 'freelancer', 'admin'].filter(value => value !== role)) {
+      assert.equal(run([role], other).error.status, 403);
+    }
+  }
+  assert.equal(run(['freelancer', 'admin'], 'admin').allowedThrough, true);
 });
