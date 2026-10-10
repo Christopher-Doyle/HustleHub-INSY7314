@@ -140,3 +140,6 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
 .gig-detail-price { font-size: 1.4rem; }
 .section-title { margin: 1.25rem 0 0.25rem; font-size: 1.05rem; }
 .gig-detail-description { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.page-header h1 { margin: 0.5rem 0; }
