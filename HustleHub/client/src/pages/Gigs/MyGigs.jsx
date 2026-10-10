@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import DeleteGigButton from '../../components/DeleteGigButton.jsx';
 import GigCard from '../../components/GigCard.jsx';
 import { listMyGigs } from '../../services/gigApi.js';
 import { useSessionUser } from '../../services/session.js';
 
 export default function MyGigs() {
   const user = useSessionUser();
-  const notice = useLocation().state?.notice;
+  const [deletedNotice, setDeletedNotice] = useState('');
+  const locationNotice = useLocation().state?.notice;
+  const notice = deletedNotice || locationNotice;
   const isFreelancer = user?.role === 'freelancer';
   const [state, setState] = useState({ status: 'loading', gigs: [], error: '' });
 
@@ -20,6 +23,12 @@ export default function MyGigs() {
   }, []);
 
   useEffect(() => (isFreelancer ? load() : undefined), [isFreelancer, load]);
+
+  // Refresh from the server so the list always reflects what is really stored.
+  function handleDeleted(gig) {
+    setDeletedNotice(`"${gig.title}" was deleted.`);
+    load();
+  }
 
   // The API enforces this too; hiding the page just avoids a pointless failing request.
   if (!isFreelancer) {
@@ -65,6 +74,7 @@ export default function MyGigs() {
             <li key={gig.id}>
               <GigCard gig={gig}>
                 <Link to={`/my-gigs/${gig.id}/edit`} className="btn">Edit</Link>
+                <DeleteGigButton gig={gig} onDeleted={handleDeleted} />
               </GigCard>
             </li>
           ))}
