@@ -94,6 +94,34 @@ function createGigService(Gig) {
         freelancerId: user.id
       });
       return toPublicGig(await gig.populate('freelancerId', 'fullName'));
+    },
+
+    // Loads the gig and proves the authenticated freelancer owns it before any change.
+    async loadOwned(user, id) {
+      assertValidId(id);
+      const gig = await Gig.findById(id).select('freelancerId');
+      if (!gig) throw new ApiError(404, 'GIG_NOT_FOUND', 'Gig not found.');
+      if (String(gig.freelancerId) !== String(user.id)) {
+        throw new ApiError(403, 'FORBIDDEN', 'You can only modify your own gigs.');
+      }
+    },
+
+    async update(user, id, input) {
+      await this.loadOwned(user, id);
+      // The ownership filter is repeated in the query so a concurrent change cannot slip through.
+      const gig = await Gig.findOneAndUpdate(
+        { _id: id, freelancerId: user.id },
+        { $set: input },
+        { returnDocument: 'after', runValidators: true }
+      ).populate('freelancerId', 'fullName');
+      if (!gig) throw new ApiError(404, 'GIG_NOT_FOUND', 'Gig not found.');
+      return toPublicGig(gig);
+    },
+
+    async remove(user, id) {
+      await this.loadOwned(user, id);
+      const result = await Gig.deleteOne({ _id: id, freelancerId: user.id });
+      if (result.deletedCount !== 1) throw new ApiError(404, 'GIG_NOT_FOUND', 'Gig not found.');
     }
   };
 }
