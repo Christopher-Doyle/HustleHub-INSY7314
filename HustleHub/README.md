@@ -158,8 +158,70 @@ The existing Part 1 Postman collection remains under `postman/`. Final Part 2 Ne
 
 This branch provides models and security primitives for the team. It does not claim completion of:
 
-- Gig CRUD, Gig ownership logic, or Gig React components.
 - Booking or transaction workflows.
 - Freelancer income calculations.
 - Booking/transaction React components.
 - Final Newman evidence.
+
+## Gig marketplace (API and React client)
+
+Freelancers create and manage their own gigs; anyone can browse them. The gig feature spans `src/` (API) and `client/` (React).
+
+### Gig API
+
+| Method | Endpoint | Access | Purpose |
+|---|---|---|---|
+| `GET` | `/api/gigs` | Public | Browse gigs. Query: `search`, `category`, `page`, `limit` (max 50) |
+| `GET` | `/api/gigs/:id` | Public | View one gig |
+| `GET` | `/api/gigs/mine` | Freelancer | List only the authenticated freelancer's gigs |
+| `POST` | `/api/gigs` | Freelancer | Create a gig |
+| `PATCH` | `/api/gigs/:id` | Gig owner | Update own gig (any subset of the four fields) |
+| `DELETE` | `/api/gigs/:id` | Gig owner | Delete own gig (`204`) |
+
+Request body for create and update: `title` (3-120), `description` (10-2000), `category` (2-80), `price` (number, 0-1,000,000, at most 2 decimals).
+
+Code layout: `routes/gigRoutes.cjs` (middleware chain) -> `controllers/gigController.cjs` (HTTP) -> `services/gigService.cjs` (business rules, ownership, queries) with `middleware/validateGigInput.cjs` for input handling.
+
+### Gig security and ownership
+
+- **Authentication and role:** write routes run `protect` (JWT) and then `requireRole('freelancer')`.
+- **Ownership:** `freelancerId` is always taken from the authenticated user, never from the request. Update and delete load the gig and return `403 FORBIDDEN` for another freelancer. The write query repeats the owner filter so a concurrent change cannot bypass the check.
+- **Validation:** only `title`, `description`, `category` and `price` are accepted. Unknown fields (`freelancerId`, `_id`, `role`, timestamps), non-string text, operator objects such as `{"$gt": ""}`, markup characters (`<`, `>`), control characters and invalid prices return `400 VALIDATION_ERROR`.
+- **Safe queries:** search text is regex-escaped; query parameters must be single strings or whole numbers; malformed ids return `400 INVALID_ID` and missing gigs return `404 GIG_NOT_FOUND`.
+- **Safe output:** responses contain only public gig fields, with the freelancer reduced to `id` and `fullName`. Errors follow the shared JSON error contract and never include stack traces or database details.
+
+### React client
+
+The client lives in `client/` (React, React Router, Vite, Vitest + Testing Library).
+
+```powershell
+cd client
+npm.cmd install
+npm.cmd run dev
+```
+
+The dev server runs at `http://localhost:5173` and proxies `/api` to the HTTPS API at `https://localhost:4000` (override with the `VITE_API_TARGET` environment variable). Start the API first with `npm.cmd start` in the project root.
+
+| Route | Who | Purpose |
+|---|---|---|
+| `/gigs` | Everyone | Browse with search, category filter and pagination |
+| `/gigs/:id` | Everyone | Gig detail |
+| `/my-gigs` | Freelancer | Own gigs with edit and delete |
+| `/my-gigs/new` | Freelancer | Create a gig |
+| `/my-gigs/:id/edit` | Freelancer (owner) | Edit a gig |
+
+- `src/services/gigApi.js` is the single module for gig requests. It attaches the Bearer token only to protected calls and converts failures into friendly messages.
+- Forms validate on the client with the same rules as the API and show errors next to the relevant field; server validation errors are mapped back to fields. The submit button is disabled while saving.
+- Pages show loading, empty and error states. Deleting requires confirmation and the list is refreshed from the API afterwards.
+- All user content is rendered as escaped text. Role checks in the UI only hide actions; the API remains the security boundary.
+- The login flow must call `setToken(token)` from `client/src/services/tokenStore.js` and `setSessionUser(user)` from `client/src/services/session.js` after a successful login, and `clearToken()` / `clearSessionUser()` on logout.
+
+### Gig tests
+
+```powershell
+npm.cmd test                 # backend, includes test/gigs.test.cjs (20 gig API tests)
+cd client
+npm.cmd test                 # frontend component and interaction tests (65 tests)
+```
+
+Backend gig tests cover browse, search, pagination, detail, My Gigs isolation, freelancer-only creation, owner update and delete, `403` for other freelancers and clients, `401` without a token, price and text validation, mass assignment, operator and script-style input, and safe error responses. Frontend tests cover the gig card, validation rules, browse and detail pages, the create and edit form, delete confirmation, role-aware access and the API client.

@@ -3,12 +3,15 @@ const helmet = require('helmet');
 const { rateLimit } = require('express-rate-limit');
 const { randomUUID } = require('node:crypto');
 const { User: UserModel } = require('./models/user.cjs');
+const { Gig: GigModel } = require('./models/gig.cjs');
 const { createAuthService } = require('./services/authService.cjs');
+const { createGigService } = require('./services/gigService.cjs');
 const { authRoutes } = require('./routes/authRoutes.cjs');
+const { gigRoutes } = require('./routes/gigRoutes.cjs');
 const { errorHandler } = require('./middleware/errorHandler.cjs');
 const { ApiError, success } = require('./utils/http.cjs');
 
-async function createApp(config, { User = UserModel, rateLimitMax = 30 } = {}) {
+async function createApp(config, { User = UserModel, Gig = GigModel, rateLimitMax = 30 } = {}) {
   const app = express();
   app.disable('x-powered-by');
   app.use((req, res, next) => { req.id = randomUUID(); res.set('X-Request-Id', req.id); res.set('Cache-Control', 'no-store'); next(); });
@@ -27,8 +30,10 @@ async function createApp(config, { User = UserModel, rateLimitMax = 30 } = {}) {
   const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: rateLimitMax, standardHeaders: 'draft-8', legacyHeaders: false,
     handler: (req, res, next) => next(new ApiError(429, 'RATE_LIMITED', 'Too many authentication attempts. Try again in 15 minutes.')) });
   const service = await createAuthService(User, config);
+  const gigService = createGigService(Gig);
   app.get('/api/health', (req, res) => success(res, 200, 'HustleHub+ API is running.', { status: 'ok' }));
   app.use('/api/auth', authRoutes(service, User, config, limiter));
+  app.use('/api/gigs', gigRoutes(gigService, User, config));
   app.use((req, res, next) => next(new ApiError(404, 'NOT_FOUND', 'The requested endpoint does not exist.')));
   app.use(errorHandler);
   return app;
