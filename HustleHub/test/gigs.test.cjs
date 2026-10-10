@@ -153,3 +153,144 @@ test('My Gigs returns only the authenticated freelancer gigs', async () => {
   assert.equal((await request('GET', '/api/gigs/mine', { token: client.token })).status, 403);
   assert.equal((await request('GET', '/api/gigs/mine')).status, 401);
 });
+
+async function createGig(token, overrides = {}) {
+  const r = await request('POST', '/api/gigs', { token, body: { ...validGig, ...overrides } });
+  assert.equal(r.status, 201);
+  return r.body.data.gig;
+}
+
+test('owner updates their own gig and unchanged fields are preserved', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Update me' });
+  const r = await request('PATCH', `/api/gigs/${gig.id}`, { token: freelancer.token, body: { price: 220.5, category: 'Branding' } });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data.gig.price, 220.5);
+  assert.equal(r.body.data.gig.category, 'Branding');
+  assert.equal(r.body.data.gig.title, 'Update me');
+  const stored = await Gig.findById(gig.id);
+  assert.equal(stored.price, 220.5);
+  assert.equal(String(stored.freelancerId), freelancer.user.id);
+});
+
+test('another freelancer cannot update a gig they do not own', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Protected gig' });
+  const r = await request('PATCH', `/api/gigs/${gig.id}`, { token: otherFreelancer.token, body: { title: 'Hijacked title' } });
+  assert.equal(r.status, 403);
+  assert.equal(r.body.error.code, 'FORBIDDEN');
+  assert.equal((await Gig.findById(gig.id)).title, 'Protected gig');
+});
+
+test('another freelancer cannot delete a gig they do not own', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Undeletable gig' });
+  const r = await request('DELETE', `/api/gigs/${gig.id}`, { token: otherFreelancer.token });
+  assert.equal(r.status, 403);
+  assert.ok(await Gig.exists({ _id: gig.id }));
+});
+
+test('clients and anonymous callers cannot update or delete gigs', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Role protected gig' });
+  for (const [method, body] of [['PATCH', { price: 1 }], ['DELETE', undefined]]) {
+    const asClient = await request(method, `/api/gigs/${gig.id}`, { token: client.token, body });
+    assert.equal(asClient.status, 403, `${method} as client`);
+    const anonymous = await request(method, `/api/gigs/${gig.id}`, { body });
+    assert.equal(anonymous.status, 401, `${method} anonymous`);
+  }
+  assert.equal((await Gig.findById(gig.id)).price, validGig.price);
+});
+
+test('owner deletes their gig with 204 and it is gone afterwards', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Delete me' });
+  const removed = await request('DELETE', `/api/gigs/${gig.id}`, { token: freelancer.token });
+  assert.equal(removed.status, 204);
+  assert.equal(removed.body, undefined);
+  assert.equal((await request('GET', `/api/gigs/${gig.id}`)).status, 404);
+  const again = await request('DELETE', `/api/gigs/${gig.id}`, { token: freelancer.token });
+  assert.equal(again.status, 404);
+});
+
+test('update and delete reject malformed and unknown gig ids safely', async () => {
+  const bad = await request('PATCH', '/api/gigs/not-an-id', { token: freelancer.token, body: { price: 1 } });
+  assert.equal(bad.status, 400);
+  assert.equal(bad.body.error.code, 'INVALID_ID');
+  const missing = await request('DELETE', `/api/gigs/${'f'.repeat(24)}`, { token: freelancer.token });
+  assert.equal(missing.status, 404);
+});
+
+test('invalid prices are rejected on create and update', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Price validation gig' });
+  for (const price of [-1, 'free', null, 1000001, 10.999, Number.NaN, '50']) {
+    const created = await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, price } });
+    assert.equal(created.status, 400, `create price ${price}`);
+    const updated = await request('PATCH', `/api/gigs/${gig.id}`, { token: freelancer.token, body: { price } });
+    assert.equal(updated.status, 400, `update price ${price}`);
+  }
+  assert.equal((await Gig.findById(gig.id)).price, validGig.price);
+});
+
+test('text fields enforce required values, lengths and type', async () => {
+  for (const overrides of [
+    { title: '' }, { title: 'ab' }, { title: 'x'.repeat(121) },
+    { description: 'too short' }, { description: 'y'.repeat(2001) },
+    { category: '' }, { category: 'x'.repeat(81) }, { title: 12345 }, { description: ['a', 'b'] }
+  ]) {
+    const r = await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, ...overrides } });
+    assert.equal(r.status, 400, JSON.stringify(overrides).slice(0, 60));
+    assert.equal(r.body.error.code, 'VALIDATION_ERROR');
+  }
+  const missing = await request('POST', '/api/gigs', { token: freelancer.token, body: { title: 'Only a title here' } });
+  assert.equal(missing.status, 400);
+  assert.ok(missing.body.error.details.length >= 3);
+});
+
+test('unknown fields including ownership overrides are rejected', async () => {
+  const gig = await createGig(freelancer.token, { title: 'Mass assignment target' });
+  const attempts = [{ freelancerId: otherFreelancer.user.id }, { _id: '507f1f77bcf86cd799439011' }, { role: 'admin' }, { createdAt: '2000-01-01' }];
+  for (const extra of attempts) {
+    const created = await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, ...extra } });
+    assert.equal(created.status, 400, `create ${Object.keys(extra)}`);
+    const updated = await request('PATCH', `/api/gigs/${gig.id}`, { token: freelancer.token, body: extra });
+    assert.equal(updated.status, 400, `update ${Object.keys(extra)}`);
+  }
+  assert.equal(String((await Gig.findById(gig.id)).freelancerId), freelancer.user.id);
+});
+
+test('operator, nested and script-style input is rejected and never stored', async () => {
+  const before = await Gig.countDocuments();
+  const payloads = [
+    { ...validGig, title: { $gt: '' } },
+    { ...validGig, category: { $ne: null } },
+    { ...validGig, price: { $gt: 0 } },
+    { ...validGig, title: '<script>alert(1)</script>' },
+    { ...validGig, description: 'Click <img src=x onerror=alert(1)> now please' },
+    { ...validGig, category: '"><svg/onload=alert(1)>' }
+  ];
+  for (const body of payloads) {
+    const r = await request('POST', '/api/gigs', { token: freelancer.token, body });
+    assert.equal(r.status, 400, JSON.stringify(body).slice(0, 70));
+  }
+  assert.equal(await Gig.countDocuments(), before);
+});
+
+test('non-object bodies, arrays, malformed JSON and empty updates fail safely', async () => {
+  for (const body of ['[1,2,3]', '"just text"', 'null']) {
+    const r = await request('POST', '/api/gigs', { token: freelancer.token, body });
+    assert.equal(r.status, 400, body);
+  }
+  const broken = await request('POST', '/api/gigs', { token: freelancer.token, body: '{"title": ' });
+  assert.equal(broken.status, 400);
+  assert.equal(broken.body.error.code, 'INVALID_JSON');
+  const empty = await request('PATCH', `/api/gigs/${(await createGig(freelancer.token, { title: 'Empty patch gig' })).id}`, { token: freelancer.token, body: {} });
+  assert.equal(empty.status, 400);
+});
+
+test('gig error responses never leak stack traces or internals', async () => {
+  const responses = [
+    await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, price: -1 } }),
+    await request('GET', '/api/gigs/not-an-id'),
+    await request('PATCH', `/api/gigs/${'0'.repeat(24)}`, { token: freelancer.token, body: { price: 1 } })
+  ];
+  for (const r of responses) {
+    const text = JSON.stringify(r.body);
+    assert.doesNotMatch(text, /stack|node_modules|mongodb:\/\/|CastError|ValidationError|at \w+ \(/i);
+  }
+});
