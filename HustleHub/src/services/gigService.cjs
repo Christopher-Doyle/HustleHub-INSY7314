@@ -82,6 +82,18 @@ function createGigService(Gig) {
       const gig = await Gig.findById(id).populate('freelancerId', 'fullName');
       if (!gig) throw new ApiError(404, 'GIG_NOT_FOUND', 'Gig not found.');
       return toPublicGig(gig);
+    },
+
+    // freelancerId always comes from the authenticated user, never from the request body.
+    async create(user, input) {
+      const gig = await Gig.create({
+        title: input.title,
+        description: input.description,
+        category: input.category,
+        price: input.price,
+        freelancerId: user.id
+      });
+      return toPublicGig(await gig.populate('freelancerId', 'fullName'));
     }
   };
 }

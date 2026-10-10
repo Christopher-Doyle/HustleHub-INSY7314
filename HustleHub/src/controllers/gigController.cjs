@@ -7,6 +7,9 @@ function createGigController(service) {
     },
     async detail(req, res) {
       return success(res, 200, 'Gig retrieved.', { gig: await service.getById(req.params.id) });
+    },
+    async create(req, res) {
+      return success(res, 201, 'Gig created.', { gig: await service.create(req.user, req.validated) });
     }
   };
 }

@@ -33,7 +33,7 @@ async function createApp(config, { User = UserModel, Gig = GigModel, rateLimitMa
   const gigService = createGigService(Gig);
   app.get('/api/health', (req, res) => success(res, 200, 'HustleHub+ API is running.', { status: 'ok' }));
   app.use('/api/auth', authRoutes(service, User, config, limiter));
-  app.use('/api/gigs', gigRoutes(gigService));
+  app.use('/api/gigs', gigRoutes(gigService, User, config));
   app.use((req, res, next) => next(new ApiError(404, 'NOT_FOUND', 'The requested endpoint does not exist.')));
   app.use(errorHandler);
   return app;
