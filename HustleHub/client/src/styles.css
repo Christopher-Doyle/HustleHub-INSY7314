@@ -77,3 +77,53 @@ body {
 .gig-description { margin: 0; color: var(--muted); flex: 1; }
 .gig-owner { margin: 0; font-size: 0.85rem; color: var(--muted); }
 .gig-actions { display: flex; gap: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border); }
+
+/* Navigation, pages and shared controls */
+.app-header nav { display: flex; gap: 1rem; }
+.app-header a { color: var(--muted); text-decoration: none; font-weight: 500; }
+.app-header a:hover, .app-header a.active { color: var(--primary); }
+
+.page-intro { margin-top: 0; color: var(--muted); }
+.state-message { padding: 2rem 0; text-align: center; color: var(--muted); }
+.result-count { color: var(--muted); font-size: 0.9rem; }
+
+.filter-bar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: flex-end; margin: 1rem 0 1.25rem; }
+.field { display: flex; flex-direction: column; gap: 0.25rem; font-size: 0.9rem; font-weight: 500; }
+.field.grow { flex: 1; min-width: 200px; }
+
+input, select, textarea {
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-visible, a:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--primary); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover:not(:disabled) { background: var(--primary-dark); }
+.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+.alert { padding: 0.75rem 1rem; border-radius: var(--radius); margin: 1rem 0; }
+.alert p { margin: 0 0 0.5rem; }
+.alert-error { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecdca; }
+.alert-success { background: var(--success-bg); color: var(--success); border: 1px solid #abefc6; }
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1.5rem 0; }
