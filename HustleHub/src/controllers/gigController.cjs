@@ -5,6 +5,9 @@ function createGigController(service) {
     async list(req, res) {
       return success(res, 200, 'Gigs retrieved.', await service.list(req.query));
     },
+    async mine(req, res) {
+      return success(res, 200, 'Your gigs retrieved.', await service.listMine(req.user));
+    },
     async detail(req, res) {
       return success(res, 200, 'Gig retrieved.', { gig: await service.getById(req.params.id) });
     },

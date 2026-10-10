@@ -10,6 +10,8 @@ function gigRoutes(service, User, config) {
   const authenticate = protect(User, config);
   // Browsing is public: only safe gig fields are returned by the service.
   router.get('/', controller.list);
+  // Must be registered before '/:id' so "mine" is not treated as a gig id.
+  router.get('/mine', authenticate, requireRole('freelancer'), controller.mine);
   router.get('/:id', controller.detail);
   // JWT first, then role, then input validation, then the controller.
   router.post('/', authenticate, requireRole('freelancer'), validateGigInput('create'), controller.create);

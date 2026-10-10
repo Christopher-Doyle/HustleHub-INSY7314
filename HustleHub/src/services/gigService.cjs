@@ -5,6 +5,7 @@ require('../models/user.cjs');
 
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
+const MAX_MINE = 200;
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -75,6 +76,12 @@ function createGigService(Gig) {
         Gig.countDocuments(filter)
       ]);
       return { gigs: gigs.map(toPublicGig), page, limit, total };
+    },
+
+    // Only the authenticated freelancer's own gigs, newest first.
+    async listMine(user) {
+      const gigs = await Gig.find({ freelancerId: user.id }).sort({ createdAt: -1, _id: -1 }).limit(MAX_MINE).populate('freelancerId', 'fullName');
+      return { gigs: gigs.map(toPublicGig), total: gigs.length };
     },
 
     async getById(id) {
