@@ -1,5 +1,6 @@
 import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import BrowseGigs from './pages/Gigs/BrowseGigs.jsx';
+import GigDetail from './pages/Gigs/GigDetail.jsx';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/gigs" replace />} />
           <Route path="/gigs" element={<BrowseGigs />} />
+          <Route path="/gigs/:id" element={<GigDetail />} />
           <Route path="*" element={<p className="state-message">Page not found.</p>} />
         </Routes>
       </main>

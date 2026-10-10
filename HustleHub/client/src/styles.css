@@ -127,3 +127,16 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
 .alert-success { background: var(--success-bg); color: var(--success); border: 1px solid #abefc6; }
 
 .pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; margin: 1.5rem 0; }
+
+/* Gig detail */
+.gig-detail {
+  max-width: 760px;
+  padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.gig-detail h1 { margin: 0.75rem 0 0.25rem; }
+.gig-detail-price { font-size: 1.4rem; }
+.section-title { margin: 1.25rem 0 0.25rem; font-size: 1.05rem; }
+.gig-detail-description { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
