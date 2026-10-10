@@ -2,6 +2,9 @@ import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
 import BrowseGigs from './pages/Gigs/BrowseGigs.jsx';
 import GigDetail from './pages/Gigs/GigDetail.jsx';
 import MyGigs from './pages/Gigs/MyGigs.jsx';
+import CreateGig from './pages/Gigs/CreateGig.jsx';
+import EditGig from './pages/Gigs/EditGig.jsx';
+import RequireFreelancer from './components/RequireFreelancer.jsx';
 import { useSessionUser } from './services/session.js';
 
 export default function App() {
@@ -21,6 +24,8 @@ export default function App() {
           <Route path="/gigs" element={<BrowseGigs />} />
           <Route path="/gigs/:id" element={<GigDetail />} />
           <Route path="/my-gigs" element={<MyGigs />} />
+          <Route path="/my-gigs/new" element={<RequireFreelancer><CreateGig /></RequireFreelancer>} />
+          <Route path="/my-gigs/:id/edit" element={<RequireFreelancer><EditGig /></RequireFreelancer>} />
           <Route path="*" element={<p className="state-message">Page not found.</p>} />
         </Routes>
       </main>
