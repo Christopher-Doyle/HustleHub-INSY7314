@@ -1,0 +1,38 @@
+/* Styles live in an external stylesheet so a strict `style-src 'self'` CSP keeps working. */
+:root {
+  --bg: #f6f7fb;
+  --surface: #ffffff;
+  --text: #1c2233;
+  --muted: #5d6579;
+  --primary: #4f46e5;
+  --primary-dark: #4338ca;
+  --danger: #b42318;
+  --danger-bg: #fef3f2;
+  --success: #067647;
+  --success-bg: #ecfdf3;
+  --border: #dfe3ee;
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.9rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { font-weight: 700; font-size: 1.2rem; color: var(--primary); }
+
+.app-main { max-width: 1080px; margin: 0 auto; padding: 1.5rem; }
