@@ -75,6 +75,15 @@ test('duplicate and concurrent duplicate registrations return 409', async () => 
   const results = await Promise.all([request('POST', '/api/auth/register', body), request('POST', '/api/auth/register', body)]);
   assert.deepEqual(results.map(r => r.status).sort(), [201, 409]);
 });
+test('CORS permits configured development origins and rejects unknown origins', async () => {
+  const allowed = await request('GET', '/api/health', undefined, { origin: 'http://localhost:5173' });
+  assert.equal(allowed.status, 200);
+  assert.equal(allowed.headers['access-control-allow-origin'], 'http://localhost:5173');
+  assert.match(allowed.headers.vary, /Origin/);
+  const denied = await request('GET', '/api/health', undefined, { origin: 'https://evil.example' });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.body.error.code, 'ORIGIN_NOT_ALLOWED');
+});
 test('client registration works and public admin registration is rejected', async () => {
   const client = await request('POST', '/api/auth/register', { ...credentials, email: 'client@example.com', role: 'client' });
   const admin = await request('POST', '/api/auth/register', { ...credentials, email: 'admin@example.com', role: 'admin' });
@@ -190,4 +199,27 @@ test('RBAC distinguishes unauthenticated, forbidden, and allowed roles', () => {
     }
   }
   assert.equal(run(['freelancer', 'admin'], 'admin').allowedThrough, true);
+});
+
+test('admin overview is admin-only and public registration cannot create admins', async () => {
+  const adminPassword = 'AdminPassphrase!7314';
+  const admin = await User.create({
+    fullName: 'HustleHub Administrator',
+    email: 'admin.overview@example.com',
+    passwordHash: await bcrypt.hash(adminPassword, 12),
+    role: 'admin'
+  });
+  const login = await request('POST', '/api/auth/login', { email: admin.email, password: adminPassword });
+  assert.equal(login.status, 200);
+  const adminResponse = await request('GET', '/api/admin/overview', undefined, { authorization: `Bearer ${login.body.data.token}` });
+  assert.equal(adminResponse.status, 200);
+  assert.ok(adminResponse.body.data.users >= 1);
+  assert.ok(adminResponse.body.data.admins >= 1);
+  assert.deepEqual(Object.keys(adminResponse.body.data).sort(), ['admins', 'bookings', 'clients', 'freelancers', 'gigs', 'transactions', 'users']);
+  assert.equal(JSON.stringify(adminResponse.body).includes('passwordHash'), false);
+
+  const freelancerLogin = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
+  const forbidden = await request('GET', '/api/admin/overview', undefined, { authorization: `Bearer ${freelancerLogin.body.data.token}` });
+  assert.equal(forbidden.status, 403);
+  assert.equal((await request('GET', '/api/admin/overview')).status, 401);
 });

@@ -4,7 +4,7 @@ const { requireRole } = require('../middleware/requireRole.cjs');
 const { validateGigInput } = require('../middleware/validateGigInput.cjs');
 const { createGigController } = require('../controllers/gigController.cjs');
 
-function gigRoutes(service, User, config) {
+function gigRoutes(service, User, config, mutationLimiter) {
   const router = Router();
   const controller = createGigController(service);
   const authenticate = protect(User, config);
@@ -14,10 +14,10 @@ function gigRoutes(service, User, config) {
   router.get('/mine', authenticate, requireRole('freelancer'), controller.mine);
   router.get('/:id', controller.detail);
   // JWT first, then role, then input validation, then the controller.
-  router.post('/', authenticate, requireRole('freelancer'), validateGigInput('create'), controller.create);
+  router.post('/', authenticate, requireRole('freelancer'), mutationLimiter, validateGigInput('create'), controller.create);
   // Role check here; object ownership is enforced again inside the service.
-  router.patch('/:id', authenticate, requireRole('freelancer'), validateGigInput('update'), controller.update);
-  router.delete('/:id', authenticate, requireRole('freelancer'), controller.remove);
+  router.patch('/:id', authenticate, requireRole('freelancer'), mutationLimiter, validateGigInput('update'), controller.update);
+  router.delete('/:id', authenticate, requireRole('freelancer'), mutationLimiter, controller.remove);
   return router;
 }
 

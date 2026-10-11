@@ -15,7 +15,7 @@ const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
 const key = fs.readFileSync(path.join(__dirname, '../certs/localhost-key.pem'));
 const PASSWORD = 'DemoPassphrase!7314';
 const validGig = { title: 'Logo design', description: 'I will design a clean modern logo.', category: 'Design', price: 150 };
-let mongo, server, port, freelancer, otherFreelancer, client;
+let mongo, config, server, port, freelancer, otherFreelancer, client;
 
 function request(method, route, { body, token } = {}) {
   return new Promise((resolve, reject) => {
@@ -43,10 +43,10 @@ async function signUp(fullName, email, role) {
 
 before(async () => {
   mongo = await MongoMemoryServer.create();
-  const config = loadConfig({ JWT_SECRET: randomBytes(32).toString('hex'), MONGODB_URI: mongo.getUri() });
+  config = loadConfig({ JWT_SECRET: randomBytes(32).toString('hex'), MONGODB_URI: mongo.getUri() });
   await connectDatabase(config.mongodbUri);
   await User.init();
-  server = https.createServer({ key, cert, minVersion: 'TLSv1.2' }, await createApp(config, { rateLimitMax: 500 }));
+  server = https.createServer({ key, cert, minVersion: 'TLSv1.2' }, await createApp(config, { rateLimitMax: 500, gigRateLimitMax: 500 }));
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   port = server.address().port;
   freelancer = await signUp('Aisha Khan', 'aisha.gigs@example.com', 'freelancer');
@@ -292,5 +292,31 @@ test('gig error responses never leak stack traces or internals', async () => {
   for (const r of responses) {
     const text = JSON.stringify(r.body);
     assert.doesNotMatch(text, /stack|node_modules|mongodb:\/\/|CastError|ValidationError|at \w+ \(/i);
+  }
+});
+
+test('prototype-related properties are rejected as unexpected input', async () => {
+  const body = `{"title":"Prototype test","description":"A valid description for this request.","category":"Design","price":10,"__proto__":{"polluted":true}}`;
+  const response = await request('POST', '/api/gigs', { token: freelancer.token, body });
+  assert.equal(response.status, 400);
+  assert.equal(response.body.error.code, 'VALIDATION_ERROR');
+  assert.equal({}.polluted, undefined);
+});
+
+test('gig mutation limiter returns a safe 429 with Retry-After', async () => {
+  const limited = https.createServer({ key, cert }, await createApp(config, { rateLimitMax: 500, gigRateLimitMax: 2 }));
+  await new Promise(resolve => limited.listen(0, '127.0.0.1', resolve));
+  const originalPort = port;
+  try {
+    port = limited.address().port;
+    assert.equal((await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, title: 'Limited one' } })).status, 201);
+    assert.equal((await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, title: 'Limited two' } })).status, 201);
+    const blocked = await request('POST', '/api/gigs', { token: freelancer.token, body: { ...validGig, title: 'Limited three' } });
+    assert.equal(blocked.status, 429);
+    assert.equal(blocked.body.error.code, 'RATE_LIMITED');
+    assert.ok(blocked.headers['retry-after']);
+  } finally {
+    port = originalPort;
+    await new Promise(resolve => limited.close(resolve));
   }
 });

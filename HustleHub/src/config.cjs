@@ -11,12 +11,21 @@ function loadConfig(env = process.env) {
   }
   const mongodbDnsServers = (env.MONGODB_DNS_SERVERS || '').split(',').map(value => value.trim()).filter(Boolean);
   if (mongodbDnsServers.some(value => !isIP(value))) throw new Error('MONGODB_DNS_SERVERS must contain comma-separated IP addresses.');
+  const clientOrigins = (env.CLIENT_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173')
+    .split(',').map(value => value.trim()).filter(Boolean);
+  if (clientOrigins.some(value => {
+    try {
+      const url = new URL(value);
+      return url.origin !== value || !['http:', 'https:'].includes(url.protocol);
+    } catch { return true; }
+  })) throw new Error('CLIENT_ORIGINS must contain comma-separated HTTP(S) origins without paths.');
   return Object.freeze({
     secret: env.JWT_SECRET,
     port,
     host: env.HOST || '127.0.0.1',
     mongodbUri: env.MONGODB_URI,
     mongodbDnsServers,
+    clientOrigins,
     issuer: 'hustlehub-api',
     audience: 'hustlehub-client',
     expiresIn: '15m'
