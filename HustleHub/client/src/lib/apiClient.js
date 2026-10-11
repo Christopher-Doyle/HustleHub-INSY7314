@@ -8,6 +8,7 @@
 // VITE_API_BASE_URL only for a production build pointed at a real,
 // CORS-enabled backend origin.
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+import { getToken } from '../services/session.js';
 
 export class ApiRequestError extends Error {
   constructor(status, code, message, details) {
@@ -18,9 +19,9 @@ export class ApiRequestError extends Error {
   }
 }
 
-let authToken = null;
 export function setAuthToken(token) {
-  authToken = token;
+  // Backwards-compatible export for older callers. New code persists through AuthContext.
+  return token;
 }
 
 async function request(method, path, body) {
@@ -30,7 +31,7 @@ async function request(method, path, body) {
       method,
       headers: {
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
-        ...(authToken ? { Authorization: `Bearer ${authToken}` } : {})
+        ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {})
       },
       body: body !== undefined ? JSON.stringify(body) : undefined
     });
@@ -51,5 +52,7 @@ async function request(method, path, body) {
 
 export const apiClient = {
   get: path => request('GET', path),
-  post: (path, body) => request('POST', path, body)
+  post: (path, body) => request('POST', path, body),
+  patch: (path, body) => request('PATCH', path, body),
+  delete: path => request('DELETE', path)
 };

@@ -1,24 +1,12 @@
-// Holds the JWT for API calls. sessionStorage is used so the token is cleared when the tab closes.
-// Every access is wrapped because storage can be blocked or unavailable.
-const KEY = 'hustlehub.token';
-let memoryToken = null;
+// Compatibility wrapper around the single authoritative session store.
+import { getToken as readToken, getSession, setSession } from './session.js';
 
 export function getToken() {
-  try {
-    return window.sessionStorage.getItem(KEY) || memoryToken;
-  } catch {
-    return memoryToken;
-  }
+  return readToken();
 }
 
 export function setToken(token) {
-  memoryToken = token || null;
-  try {
-    if (token) window.sessionStorage.setItem(KEY, token);
-    else window.sessionStorage.removeItem(KEY);
-  } catch {
-    /* storage unavailable: the in-memory copy is enough for this session */
-  }
+  setSession(token, getSession().user);
 }
 
 export function clearToken() {

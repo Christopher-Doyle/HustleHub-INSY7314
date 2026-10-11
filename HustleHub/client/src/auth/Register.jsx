@@ -33,7 +33,9 @@ export default function Register() {
 
   return (
     <div className="card card-narrow">
+      <p className="eyebrow">Create your account</p>
       <h1>Register</h1>
+      <p className="page-intro">Choose your role and start using the marketplace.</p>
       <form onSubmit={handleSubmit} noValidate>
         <label htmlFor="register-name">Full name</label>
         <input id="register-name" value={fullName} onChange={e => setFullName(e.target.value)} required autoComplete="name" />
@@ -52,7 +54,7 @@ export default function Register() {
 
         {error && <p className="form-error" role="alert">{error}</p>}
 
-        <button type="submit" disabled={submitting}>{submitting ? 'Creating account…' : 'Register'}</button>
+        <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>{submitting ? 'Creating account…' : 'Register'}</button>
       </form>
       <p>Already have an account? <Link to="/login">Log in</Link></p>
     </div>

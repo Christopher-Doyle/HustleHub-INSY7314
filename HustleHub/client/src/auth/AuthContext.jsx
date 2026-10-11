@@ -5,32 +5,28 @@
 // plain login/register forms, a token kept in memory + localStorage, and no
 // styling beyond the shared stylesheet. Replace freely.
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { apiClient, setAuthToken, ApiRequestError } from '../lib/apiClient.js';
-
-const STORAGE_KEY = 'hustlehub.auth';
+import { apiClient, ApiRequestError } from '../lib/apiClient.js';
+import { clearSession, getSession, setSession, subscribeSession } from '../services/session.js';
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const [sessionState, setSessionState] = useState(getSession);
   const [loading, setLoading] = useState(true);
+  const { user, token } = sessionState;
 
   useEffect(() => {
-    let stored = null;
-    try { stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); } catch { /* ignore */ }
-    if (!stored?.token) { setLoading(false); return; }
-    setAuthToken(stored.token);
+    const unsubscribe = subscribeSession(() => setSessionState(getSession()));
+    const stored = getSession();
+    if (!stored.token) { setLoading(false); return unsubscribe; }
     apiClient.get('/api/auth/me')
-      .then(data => { setUser(data.user); setToken(stored.token); })
-      .catch(() => { setAuthToken(null); localStorage.removeItem(STORAGE_KEY); })
+      .then(data => setSession(stored.token, data.user))
+      .catch(clearSession)
       .finally(() => setLoading(false));
+    return unsubscribe;
   }, []);
 
   function persist(nextToken, nextUser) {
-    setAuthToken(nextToken);
-    setToken(nextToken);
-    setUser(nextUser);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ token: nextToken }));
+    setSession(nextToken, nextUser);
   }
 
   const value = useMemo(() => ({
@@ -47,10 +43,7 @@ export function AuthProvider({ children }) {
       return (await apiClient.post('/api/auth/register', fields)).user;
     },
     logout() {
-      setAuthToken(null);
-      setUser(null);
-      setToken(null);
-      localStorage.removeItem(STORAGE_KEY);
+      clearSession();
     }
   }), [user, token, loading]);
 

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { vi } from 'vitest';
@@ -30,7 +30,7 @@ function renderApp(path) {
 }
 
 afterEach(() => {
-  clearSessionUser();
+  act(() => clearSessionUser());
   vi.clearAllMocks();
 });
 
@@ -52,6 +52,7 @@ describe('role-aware access', () => {
     listGigs.mockResolvedValue({ gigs: [], total: 0 });
     renderApp('/gigs');
     expect(screen.getByRole('link', { name: 'My gigs' })).toHaveAttribute('href', '/my-gigs');
+    expect(await screen.findByText('No gigs have been posted yet.')).toBeInTheDocument();
   });
 });
 

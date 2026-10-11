@@ -27,7 +27,9 @@ export default function Login() {
 
   return (
     <div className="card card-narrow">
+      <p className="eyebrow">Welcome back</p>
       <h1>Log in</h1>
+      <p className="page-intro">Access your HustleHub+ workspace securely.</p>
       <form onSubmit={handleSubmit} noValidate>
         <label htmlFor="login-email">Email</label>
         <input id="login-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
@@ -37,7 +39,7 @@ export default function Login() {
 
         {error && <p className="form-error" role="alert">{error}</p>}
 
-        <button type="submit" disabled={submitting}>{submitting ? 'Logging in…' : 'Log in'}</button>
+        <button className="btn btn-primary btn-block" type="submit" disabled={submitting}>{submitting ? 'Logging in…' : 'Log in'}</button>
       </form>
       <p>No account? <Link to="/register">Register</Link></p>
     </div>
