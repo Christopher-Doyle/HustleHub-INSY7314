@@ -1,8 +1,8 @@
 {
   "info": {
-    "name": "HustleHub+ | Part 2 Secure Stack",
+    "name": "HustleHub+ | Part 2 Full Regression",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Run top-to-bottom in one go via Newman (npm run test:postman), which seeds a demo gig and starts two isolated HTTPS servers automatically — no manual copy/paste of ids or tokens required. Folder 01 regenerates Part 1's auth coverage. Folder 02 (Gigs) is Daniel's and is expected to fail with 404 until his gig routes are merged — everything from folder 03 onward only depends on Person 1's models/auth and Person 3's own code, so it should pass today. Folders 03-05 are Person 3's bookings/transactions/income/RBAC coverage. Folder 06 proves the booking rate limiter against a second, isolated server so earlier booking traffic in this run can never change the outcome. Trust certs/localhost.pem in Postman before running manually. All credentials are disposable test data."
+    "description": "Run with npm run test:postman. The automated runner uses HTTPS and mongodb-memory-server, then destroys all disposable data in a guaranteed finalization path."
   },
   "variable": [
     {
@@ -14,60 +14,59 @@
       "value": "https://localhost:4001"
     },
     {
-      "key": "testEmail",
-      "value": ""
-    },
-    {
       "key": "testPassword",
       "value": "DemoPassphrase!7314"
     },
     {
-      "key": "accessToken",
+      "key": "freelancerEmail",
       "value": ""
     },
     {
-      "key": "userId",
+      "key": "freelancerId",
+      "value": ""
+    },
+    {
+      "key": "freelancerToken",
+      "value": ""
+    },
+    {
+      "key": "clientEmail",
+      "value": ""
+    },
+    {
+      "key": "clientToken",
+      "value": ""
+    },
+    {
+      "key": "otherFreelancerEmail",
+      "value": ""
+    },
+    {
+      "key": "otherFreelancerToken",
+      "value": ""
+    },
+    {
+      "key": "adminEmail",
+      "value": ""
+    },
+    {
+      "key": "adminPassword",
+      "value": ""
+    },
+    {
+      "key": "adminToken",
       "value": ""
     },
     {
       "key": "gigId",
-      "value": "",
-      "description": "Printed by `npm run seed:dev`, or set automatically by run-postman.cjs."
+      "value": ""
+    },
+    {
+      "key": "deleteGigId",
+      "value": ""
     },
     {
       "key": "gigPrice",
-      "value": "450"
-    },
-    {
-      "key": "seedFreelancerEmail",
-      "value": "seed.freelancer@example.com"
-    },
-    {
-      "key": "seedFreelancerPassword",
-      "value": "DemoPassphrase!7314"
-    },
-    {
-      "key": "seedFreelancerId",
-      "value": ""
-    },
-    {
-      "key": "seedFreelancerToken",
-      "value": ""
-    },
-    {
-      "key": "bookingClientEmail",
-      "value": ""
-    },
-    {
-      "key": "bookingClientToken",
-      "value": ""
-    },
-    {
-      "key": "bookingFreelancer2Email",
-      "value": ""
-    },
-    {
-      "key": "bookingFreelancer2Token",
       "value": ""
     },
     {
@@ -77,1903 +76,2067 @@
   ],
   "item": [
     {
-      "name": "01 - HTTPS health check",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/health",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
+      "name": "01 Authentication",
+      "item": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('HTTPS URL', () => pm.expect(pm.variables.replaceIn(pm.request.url.toString())).to.match(/^https:/));"
-            ]
-          }
-        },
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.collectionVariables.set('testEmail', 'aisha.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
-              "pm.collectionVariables.unset('accessToken');"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Register freelancer",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 201. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Aisha Khan\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "HTTPS health check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/health",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
             }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Freelancer created', () => pm.expect(pm.response.json().data.user.role).to.eql('freelancer'));",
-              "pm.collectionVariables.set('userId', pm.response.json().data.user.id);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Duplicate email",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 409. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Aisha Khan\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Login and save JWT automatically",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('JWT returned', () => pm.expect(pm.response.json().data.token.split('.')).to.have.lengthOf(3));",
-              "pm.collectionVariables.set('accessToken', pm.response.json().data.token);",
-              "pm.test('15 minute lifetime', () => pm.expect(pm.response.json().data.expiresIn).to.eql(900));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Protected profile with saved token",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/auth/me",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{accessToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Correct user', () => pm.expect(pm.response.json().data.user.id).to.eql(pm.collectionVariables.get('userId')));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Protected profile without token",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/auth/me",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Invalid token",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/auth/me",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('freelancerEmail', 'freelancer.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
+                  "pm.collectionVariables.set('clientEmail', 'client.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
+                  "pm.collectionVariables.set('otherFreelancerEmail', 'other.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');"
+                ]
+              }
+            },
             {
-              "key": "token",
-              "value": "not.a.valid-token",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Wrong password",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"WrongPassword!7314\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Unknown account",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"missing.{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Missing fields",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Invalid email",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Aisha Khan\",\n  \"email\": \"invalid-email\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Short password",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Aisha Khan\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"short\",\n  \"role\": \"freelancer\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Injection object rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": {\n    \"$ne\": null\n  },\n  \"password\": \"{{testPassword}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Script markup rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"<script>alert(1)</script>\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Admin self-registration rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Aisha Khan\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"admin\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Unknown fields rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Aisha Khan\",\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\",\n  \"isAdmin\": true\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Malformed JSON",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\"email\":",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Wrong content type",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "text/plain"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 415. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "email=aisha@example.com",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 415', () => pm.response.to.have.status(415));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "01 - Unknown route",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/does-not-exist",
-        "description": "Expected status: 404. ",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "02 - Browse gigs (pending Person 2)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/gigs",
-        "description": "Expected status: 200. Owner: Daniel. Expected to fail with 404 until gigRoutes.cjs is merged.",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "02 - View seeded gig detail (pending Person 2)",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/gigs/{{gigId}}",
-        "description": "Expected status: 200. Owner: Daniel. Will return the gig seeded by scripts/seed-dev-gigs.cjs once GET /api/gigs/:id exists.",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Register booking client",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 201. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Client Tester\",\n  \"email\": \"{{bookingClientEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"client\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        },
-        {
-          "listen": "prerequest",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.collectionVariables.set('bookingClientEmail', 'booking.client.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
-              "pm.collectionVariables.set('bookingFreelancer2Email', 'booking.freelancer2.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Login booking client",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{bookingClientEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.collectionVariables.set('bookingClientToken', pm.response.json().data.token);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Register second freelancer (not the gig owner)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/register",
-        "description": "Expected status: 201. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"fullName\": \"Other Freelancer\",\n  \"email\": \"{{bookingFreelancer2Email}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Login second freelancer",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{bookingFreelancer2Email}}\",\n  \"password\": \"{{testPassword}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.collectionVariables.set('bookingFreelancer2Token', pm.response.json().data.token);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Login seed freelancer (owns the seeded gig)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/auth/login",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"email\": \"{{seedFreelancerEmail}}\",\n  \"password\": \"{{seedFreelancerPassword}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.collectionVariables.set('seedFreelancerToken', pm.response.json().data.token);",
-              "pm.collectionVariables.set('seedFreelancerId', pm.response.json().data.user.id);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Client books the seeded gig",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 201. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('HTTPS target', () => pm.expect(pm.variables.replaceIn(pm.request.url.toString())).to.match(/^https:/));"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Price copied from the server-side gig', () => pm.expect(pm.response.json().data.booking.price).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
-              "pm.test('Freelancer copied from the server-side gig', () => pm.expect(pm.response.json().data.booking.freelancerId).to.eql(pm.collectionVariables.get('seedFreelancerId')));",
-              "pm.test('Booking confirmed (simulated)', () => pm.expect(pm.response.json().data.booking.status).to.eql('confirmed'));",
-              "pm.test('Transaction created automatically', () => pm.expect(pm.response.json().data.transaction.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
-              "pm.collectionVariables.set('bookingId', pm.response.json().data.booking.id);"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Forged price/freelancer are ignored, not accepted",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 400. Only gigId is allowlisted; a client cannot submit its own price or freelancer.",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          "name": "Register freelancer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Aisha Freelancer\",\n  \"email\": \"{{freelancerEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.collectionVariables.set('freelancerId', pm.response.json().data.user.id);"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\",\n  \"price\": 1,\n  \"freelancerId\": \"000000000000000000000000\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Malformed gig id rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          "name": "Duplicate registration rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Expected status: 409.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Aisha Freelancer\",\n  \"email\": \"{{freelancerEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', () => pm.response.to.have.status(409));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"not-an-id\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Non-existent gig rejected safely",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 404. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          "name": "Invalid registration rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"<script>alert(1)</script>\",\n  \"email\": \"invalid\",\n  \"password\": \"short\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"507f1f77bcf86cd799439011\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Operator-style gig id rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          "name": "Public admin registration rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Public Admin\",\n  \"email\": \"admin.{{$guid}}@example.com\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"admin\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": {\n    \"$ne\": null\n  }\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Freelancer cannot book a gig",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 403. Role-restricted server-side, not just hidden in the UI.",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          "name": "Login freelancer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{freelancerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingFreelancer2Token}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.collectionVariables.set('freelancerToken', pm.response.json().data.token);"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Booking without a token is rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "noauth"
-        },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+          "name": "Invalid login rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Expected status: 401.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{freelancerEmail}}\",\n  \"password\": \"WrongPassword!7314\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Client sees their own booking",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/bookings/me",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Contains the booking just created', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Client cannot use the freelancer booking view",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/bookings/freelancer",
-        "description": "Expected status: 403. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - Gig-owning freelancer sees the booking",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/bookings/freelancer",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{seedFreelancerToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Contains the booking', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "03 - A different freelancer sees no bookings for a gig they do not own",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/bookings/freelancer",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{bookingFreelancer2Token}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Isolated from other freelancers\\' bookings', () => pm.expect(pm.response.json().data.bookings).to.eql([]));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "04 - Freelancer sees the transaction for the booking",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/transactions/me",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{seedFreelancerToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Contains the linked transaction', () => pm.expect(pm.response.json().data.transactions.map(t => t.bookingId)).to.include(pm.collectionVariables.get('bookingId')));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "04 - A different freelancer sees no transactions",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/transactions/me",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{bookingFreelancer2Token}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('No transactions for an unrelated freelancer', () => pm.expect(pm.response.json().data.transactions).to.eql([]));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "04 - Freelancer income summary includes this booking",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/income/me",
-        "description": "Expected status: 200. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{seedFreelancerToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Income is at least the booked gig price', () => pm.expect(pm.response.json().data.totalIncome).to.be.at.least(Number(pm.collectionVariables.get('gigPrice'))));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "04 - Client cannot read freelancer income",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/income/me",
-        "description": "Expected status: 403. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
-            }
-          ]
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "04 - Income requires authentication",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/income/me",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "05 - Freelancer-only view requires authentication",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/bookings/freelancer",
-        "description": "Expected status: 401. ",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "05 - Malicious JSON body on bookings handled safely",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 400. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
-            {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\"gigId\":",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Controlled JSON error', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_JSON'));"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "05 - Wrong content type on bookings rejected",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "text/plain"
-          }
-        ],
-        "url": "{{baseUrl}}/api/bookings",
-        "description": "Expected status: 415. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          "name": "Profile with JWT",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Correct profile', () => pm.expect(pm.response.json().data.user.id).to.eql(pm.collectionVariables.get('freelancerId')));"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "gigId=123",
-          "options": {
-            "raw": {
-              "language": "json"
+        {
+          "name": "Profile without token rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Expected status: 401.",
+            "auth": {
+              "type": "noauth"
             }
-          }
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 415', () => pm.response.to.have.status(415));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "05 - Errors never leak stack traces or secrets",
-      "request": {
-        "method": "GET",
-        "header": [],
-        "url": "{{baseUrl}}/api/does-not-exist",
-        "description": "Expected status: 404. ",
-        "auth": {
-          "type": "noauth"
-        }
-      },
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('No stack/secret leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/at [A-Za-z]+\\.[A-Za-z]+ \\(/); pm.expect(text.toLowerCase()).not.to.include('mongodb+srv'); });"
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "name": "06 - Booking rate limit: request 1 (allowed)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{rateLimitBaseUrl}}/api/bookings",
-        "description": "Expected status: 201. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
+          "name": "Malformed token rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Expected status: 401.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "not.a.valid-token",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "06 - Booking rate limit: request 2 (allowed)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{rateLimitBaseUrl}}/api/bookings",
-        "description": "Expected status: 201. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+      "name": "02 Gig Marketplace",
+      "item": [
+        {
+          "name": "Freelancer creates gig",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Secure API integration\",\n  \"description\": \"I will build and test a secure API integration for your project.\",\n  \"category\": \"Development\",\n  \"price\": 450\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('JWT owner used', () => pm.expect(pm.response.json().data.gig.freelancer.id).to.eql(pm.collectionVariables.get('freelancerId')));",
+                  "pm.collectionVariables.set('gigId', pm.response.json().data.gig.id);",
+                  "pm.collectionVariables.set('gigPrice', String(pm.response.json().data.gig.price));"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });"
-            ]
-          }
+          "name": "Public browse",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Gig appears in marketplace', () => pm.expect(pm.response.json().data.gigs.map(g => g.id)).to.include(pm.collectionVariables.get('gigId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Public detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs/{{gigId}}",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Correct detail', () => pm.expect(pm.response.json().data.gig.id).to.eql(pm.collectionVariables.get('gigId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List own gigs",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs/mine",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Only authenticated owner gigs', () => pm.response.json().data.gigs.forEach(g => pm.expect(g.freelancer.id).to.eql(pm.collectionVariables.get('freelancerId'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Edit own gig",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs/{{gigId}}",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Secure API and web integration\",\n  \"price\": 475\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Edit persisted', () => pm.expect(pm.response.json().data.gig.price).to.eql(475));",
+                  "pm.collectionVariables.set('gigPrice', '475');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create disposable delete target",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Delete target\",\n  \"description\": \"I will build and test a secure API integration for your project.\",\n  \"category\": \"Development\",\n  \"price\": 450\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.collectionVariables.set('deleteGigId', pm.response.json().data.gig.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete own gig",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs/{{deleteGigId}}",
+            "description": "Expected status: 204.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Deleted gig returns 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs/{{deleteGigId}}",
+            "description": "Expected status: 404.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Negative price rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Secure API integration\",\n  \"description\": \"I will build and test a secure API integration for your project.\",\n  \"category\": \"Development\",\n  \"price\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Script markup rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"<script>alert(1)</script>\",\n  \"description\": \"I will build and test a secure API integration for your project.\",\n  \"category\": \"Development\",\n  \"price\": 450\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Operator object rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Secure API integration\",\n  \"description\": \"I will build and test a secure API integration for your project.\",\n  \"category\": {\n    \"$ne\": null\n  },\n  \"price\": 450\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Malformed Gig id rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs/not-an-id",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
     {
-      "name": "06 - Booking rate limit: request 3 (429 with Retry-After)",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{rateLimitBaseUrl}}/api/bookings",
-        "description": "Expected status: 429. ",
-        "auth": {
-          "type": "bearer",
-          "bearer": [
+      "name": "03 Gig Ownership and RBAC",
+      "item": [
+        {
+          "name": "Register client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Casey Client\",\n  \"email\": \"{{clientEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"client\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
             {
-              "key": "token",
-              "value": "{{bookingClientToken}}",
-              "type": "string"
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
             }
           ]
         },
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      },
-      "event": [
         {
-          "listen": "test",
-          "script": {
-            "type": "text/javascript",
-            "exec": [
-              "pm.test('HTTP 429', () => pm.response.to.have.status(429));",
-              "pm.test('JSON response', () => pm.response.to.be.json);",
-              "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
-              "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
-              "pm.test('Meaningful 429 body', () => pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED'));",
-              "pm.test('Retry-After header present', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);"
-            ]
-          }
+          "name": "Login client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{clientEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.collectionVariables.set('clientToken', pm.response.json().data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Register second freelancer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/register",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Bongani Freelancer\",\n  \"email\": \"{{otherFreelancerEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"role\": \"freelancer\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login second freelancer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{otherFreelancerEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.collectionVariables.set('otherFreelancerToken', pm.response.json().data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Client cannot create gig",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Secure API integration\",\n  \"description\": \"I will build and test a secure API integration for your project.\",\n  \"category\": \"Development\",\n  \"price\": 450\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-owner cannot edit gig",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs/{{gigId}}",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherFreelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Hijacked title\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Non-owner cannot delete gig",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/api/gigs/{{gigId}}",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherFreelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ownership override rejected",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/gigs/{{gigId}}",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"freelancerId\": \"507f1f77bcf86cd799439011\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login isolated admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.collectionVariables.set('adminToken', pm.response.json().data.token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Admin overview succeeds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/overview",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Safe aggregate counts', () => pm.expect(pm.response.json().data).to.have.all.keys('users','clients','freelancers','admins','gigs','bookings','transactions'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Client cannot access admin overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/overview",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Freelancer cannot access admin overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/admin/overview",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "04 Bookings",
+      "item": [
+        {
+          "name": "Client books gig",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/bookings",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Price derived server-side', () => pm.expect(pm.response.json().data.booking.price).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
+                  "pm.test('Owner derived server-side', () => pm.expect(pm.response.json().data.booking.freelancerId).to.eql(pm.collectionVariables.get('freelancerId')));",
+                  "pm.test('Transaction automatically created', () => pm.expect(pm.response.json().data.transaction.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
+                  "pm.collectionVariables.set('bookingId', pm.response.json().data.booking.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Forged price and freelancer rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/bookings",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"{{gigId}}\",\n  \"price\": 1,\n  \"freelancerId\": \"507f1f77bcf86cd799439011\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Freelancer cannot book",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/bookings",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid Gig rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/bookings",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"not-an-id\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Client lists own bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bookings/me",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Own booking visible', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Owner lists relevant bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bookings/freelancer",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Related booking visible', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unrelated freelancer booking isolation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/bookings/freelancer",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherFreelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('No unrelated bookings', () => pm.expect(pm.response.json().data.bookings).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 Transactions and Income",
+      "item": [
+        {
+          "name": "Owner sees linked transaction",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/transactions/me",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Correct linked transaction', () => { const t = pm.response.json().data.transactions.find(x => x.bookingId === pm.collectionVariables.get('bookingId')); pm.expect(t.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unrelated freelancer transaction isolation",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/transactions/me",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherFreelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('No unrelated transactions', () => pm.expect(pm.response.json().data.transactions).to.eql([]));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Owner income total",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/income/me",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Correct income', () => pm.expect(pm.response.json().data.totalIncome).to.eql(Number(pm.collectionVariables.get('gigPrice'))));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unrelated freelancer has zero income",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/income/me",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{otherFreelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Zero unrelated income', () => pm.expect(pm.response.json().data.totalIncome).to.eql(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Client cannot access income",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/income/me",
+            "description": "Expected status: 403.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', () => pm.response.to.have.status(403));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 Security and Error Cases",
+      "item": [
+        {
+          "name": "Malformed JSON controlled error",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/bookings",
+            "description": "Expected status: 400.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\"gigId\":",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', () => pm.response.to.have.status(400));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Controlled parser error', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_JSON'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Wrong content type rejected",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "text/plain"
+              }
+            ],
+            "url": "{{baseUrl}}/api/bookings",
+            "description": "Expected status: 415.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "gigId=123",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 415', () => pm.response.to.have.status(415));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Unknown endpoint returns 404",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/does-not-exist",
+            "description": "Expected status: 404.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 404', () => pm.response.to.have.status(404));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rate limit request one",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{rateLimitBaseUrl}}/api/bookings",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rate limit request two",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{rateLimitBaseUrl}}/api/bookings",
+            "description": "Expected status: 201.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', () => pm.response.to.have.status(201));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Rate limit request three blocked",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{rateLimitBaseUrl}}/api/bookings",
+            "description": "Expected status: 429.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{clientToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"gigId\": \"{{gigId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 429', () => pm.response.to.have.status(429));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Retry-After present', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);",
+                  "pm.test('Safe limiter code', () => pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED'));"
+                ]
+              }
+            }
+          ]
         }
       ]
     }

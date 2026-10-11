@@ -2,71 +2,100 @@ const newman = require('newman');
 const https = require('node:https');
 const fs = require('node:fs');
 const path = require('node:path');
+const { randomBytes } = require('node:crypto');
+const bcrypt = require('bcryptjs');
+const { MongoMemoryServer } = require('mongodb-memory-server');
 const { createApp } = require('../src/app.cjs');
 const { loadConfig } = require('../src/config.cjs');
 const { connectDatabase, disconnectDatabase } = require('../src/database.cjs');
-const { seedDevGigs } = require('./seed-dev-gigs.cjs');
+const { User } = require('../src/models/user.cjs');
+
+function listen(server) {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+}
+
+function close(server) {
+  return !server?.listening ? Promise.resolve() : new Promise(resolve => server.close(resolve));
+}
+
+function runNewman(options) {
+  return new Promise((resolve, reject) => {
+    newman.run(options, (error, summary) => error ? reject(error) : resolve(summary));
+  });
+}
 
 async function main() {
   const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
   const key = fs.readFileSync(path.join(__dirname, '../certs/localhost-key.pem'));
-  const config = loadConfig();
-  await connectDatabase(config.mongodbUri, { dnsServers: config.mongodbDnsServers });
+  let mongo;
+  let server;
+  let rateLimitServer;
+  try {
+    mongo = await MongoMemoryServer.create();
+    const config = loadConfig({
+      ...process.env,
+      JWT_SECRET: randomBytes(32).toString('hex'),
+      MONGODB_URI: mongo.getUri('hustlehub-newman')
+    });
+    await connectDatabase(config.mongodbUri);
+    const adminEmail = 'isolated.admin@example.invalid';
+    const adminPassword = `Admin-${randomBytes(12).toString('hex')}!`;
+    await User.create({
+      fullName: 'Isolated Test Administrator',
+      email: adminEmail,
+      passwordHash: await bcrypt.hash(adminPassword, 12),
+      role: 'admin'
+    });
 
-  // Seed a real gig directly via the shared Mongoose models (see
-  // scripts/seed-dev-gigs.cjs) so the Bookings/Transactions folders have a
-  // real gigId to book against without depending on Person 2's gig API.
-  const { freelancerEmail, freelancerPassword, gigs } = await seedDevGigs();
-  const gig = gigs[0];
+    server = https.createServer({ cert, key, minVersion: 'TLSv1.2' }, await createApp(config, {
+      rateLimitMax: 300, bookingRateLimitMax: 300, gigRateLimitMax: 300
+    }));
+    await listen(server);
+    rateLimitServer = https.createServer({ cert, key, minVersion: 'TLSv1.2' }, await createApp(config, {
+      rateLimitMax: 300, bookingRateLimitMax: 2, gigRateLimitMax: 300
+    }));
+    await listen(rateLimitServer);
 
-  // Main server: generous limits so the ~35 requests this collection makes
-  // (auth + bookings + transactions + RBAC) never trip a limiter by accident.
-  const app = await createApp(config, { rateLimitMax: 200, bookingRateLimitMax: 200 });
-  const server = https.createServer({ cert, key }, app);
-  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+    const summary = await runNewman({
+      collection: require(path.join(__dirname, '../postman/HustleHub-Part2.postman_collection.json')),
+      envVar: [
+        { key: 'baseUrl', value: `https://127.0.0.1:${server.address().port}` },
+        { key: 'rateLimitBaseUrl', value: `https://127.0.0.1:${rateLimitServer.address().port}` },
+        { key: 'adminEmail', value: adminEmail },
+        { key: 'adminPassword', value: adminPassword }
+      ],
+      sslExtraCaCerts: path.join(__dirname, '../certs/localhost.pem'),
+      reporters: ['cli']
+    });
 
-  // Second, isolated server with a deliberately tiny booking limit so folder
-  // 06's rate-limit demonstration is deterministic regardless of how much
-  // booking traffic happened earlier in the same collection run.
-  const rateLimitApp = await createApp(config, { rateLimitMax: 200, bookingRateLimitMax: 2 });
-  const rateLimitServer = https.createServer({ cert, key }, rateLimitApp);
-  await new Promise(resolve => rateLimitServer.listen(0, '127.0.0.1', resolve));
-
-  const collectionPath = path.join(__dirname, '../postman/HustleHub-Part2.postman_collection.json');
-  newman.run({
-    collection: require(collectionPath),
-    envVar: [
-      { key: 'baseUrl', value: `https://127.0.0.1:${server.address().port}` },
-      { key: 'rateLimitBaseUrl', value: `https://127.0.0.1:${rateLimitServer.address().port}` },
-      { key: 'gigId', value: String(gig._id) },
-      { key: 'gigPrice', value: String(gig.price) },
-      { key: 'seedFreelancerEmail', value: freelancerEmail },
-      { key: 'seedFreelancerPassword', value: freelancerPassword }
-    ],
-    sslExtraCaCerts: path.join(__dirname, '../certs/localhost.pem'),
-    reporters: ['cli']
-  }, (err, summary) => {
-    server.close(() => rateLimitServer.close(() => disconnectDatabase().catch(() => { process.exitCode = 1; })));
-    if (err) { console.error('Collection run failed:', err.message); process.exitCode = 1; return; }
     const report = {
       date: new Date().toISOString(),
-      runner: 'Newman (Postman collection)',
-      collection: 'HustleHub+ | Part 2 Secure Stack',
-      tlsVerification: true,
+      environment: 'isolated mongodb-memory-server',
+      collection: 'HustleHub+ Part 2',
       stats: summary.run.stats,
-      failures: summary.run.failures.map(f => ({ test: f.error.test, message: f.error.message, source: f.source && f.source.name })),
-      responses: summary.run.executions.map(e => {
-        let body;
-        try { body = JSON.parse(e.response.stream.toString()); } catch { body = null; }
-        if (body?.data?.token) body.data.token = '[REDACTED: live bearer token]';
-        return { name: e.item.name, status: e.response?.code, body };
-      })
+      failures: summary.run.failures.map(failure => ({
+        test: failure.error.test,
+        message: failure.error.message,
+        source: failure.source?.name
+      }))
     };
-    fs.mkdirSync(path.join(__dirname, '../evidence'), { recursive: true });
-    fs.writeFileSync(path.join(__dirname, '../evidence/postman-run.json'), JSON.stringify(report, null, 2) + '\n');
-    console.log(`\nSaved Newman evidence to evidence/postman-run.json (${summary.run.stats.assertions.total} assertions, ${summary.run.stats.assertions.failed} failed).`);
+    const privateDir = path.join(__dirname, '../evidence/private');
+    fs.mkdirSync(privateDir, { recursive: true });
+    fs.writeFileSync(path.join(privateDir, 'postman-run.json'), `${JSON.stringify(report, null, 2)}\n`);
+    console.log(`\nIsolated Newman run: ${summary.run.stats.requests.total} requests, ${summary.run.stats.assertions.total} assertions, ${summary.run.stats.assertions.failed} failed.`);
     if (summary.run.failures.length) process.exitCode = 1;
-  });
+  } finally {
+    await close(server);
+    await close(rateLimitServer);
+    await disconnectDatabase().catch(() => {});
+    if (mongo) await mongo.stop();
+  }
 }
 
-main().catch(err => { console.error(err.message); process.exitCode = 1; });
+main().catch(error => {
+  console.error(`Newman run failed: ${error.message}`);
+  process.exitCode = 1;
+});

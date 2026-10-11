@@ -8,3 +8,4 @@ coverage/
 *.log
 .connection-check.tmp
 evidence/private/
+evidence/*.json

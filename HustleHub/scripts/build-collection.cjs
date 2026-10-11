@@ -1,158 +1,145 @@
-// Generates postman/HustleHub-Part2.postman_collection.json.
-//
-// Extends Person 1's Part 1 generator pattern (requests are built in code,
-// not hand-edited JSON, so the collection stays consistent and easy to
-// diff/review). Adds the Part 2 folders Person 3 owns: Bookings,
-// Transactions & Income, RBAC & Security, and a deterministic booking
-// rate-limit demonstration. The "02 Gigs" folder is Person 2 (Daniel)'s
-// endpoints — included as a thin, clearly-marked smoke section against the
-// locked API contract so the collection structure matches the brief; those
-// requests are expected to fail with 404 until his gig routes are merged.
+// Generates a deterministic, foldered Part 2 collection. The companion
+// runner supplies isolated HTTPS servers and an in-memory MongoDB database.
 const fs = require('node:fs');
 const path = require('node:path');
-const { SEED_FREELANCER_EMAIL, SEED_FREELANCER_PASSWORD } = require('./seed-dev-gigs.cjs');
 
-const items = [];
-const good = { fullName: 'Aisha Khan', email: '{{testEmail}}', password: '{{testPassword}}', role: 'freelancer' };
+const folders = Object.fromEntries([
+  ['01', '01 Authentication'],
+  ['02', '02 Gig Marketplace'],
+  ['03', '03 Gig Ownership and RBAC'],
+  ['04', '04 Bookings'],
+  ['05', '05 Transactions and Income'],
+  ['06', '06 Security and Error Cases']
+].map(([key, name]) => [key, { name, item: [] }]));
 
-function add(name, method, endpoint, status, body, extra = {}) {
+function add(folder, name, method, endpoint, status, body, extra = {}) {
+  const expectsJson = status !== 204;
   const tests = [
     `pm.test('HTTP ${status}', () => pm.response.to.have.status(${status}));`,
-    "pm.test('JSON response', () => pm.response.to.be.json);",
-    `pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(${status < 400}));`,
-    "pm.test('No credentials leaked', () => { const json = pm.response.json(); const user = json.data && json.data.user; if (user) { pm.expect(user).not.to.have.property('password'); pm.expect(user).not.to.have.property('passwordHash'); } pm.expect(json).not.to.have.property('stack'); });",
+    ...(expectsJson ? [
+      "pm.test('JSON response', () => pm.response.to.be.json);",
+      `pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(${status < 400}));`,
+      "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+    ] : []),
     ...(extra.tests || [])
   ];
-  const request = { method, header: body === undefined ? [] : [{ key: 'Content-Type', value: extra.contentType || 'application/json' }], url: `{{${extra.baseUrlVar || 'baseUrl'}}}${endpoint}`, description: `Expected status: ${status}. ${extra.description || ''}` };
-  request.auth = extra.token ? { type: 'bearer', bearer: [{ key: 'token', value: extra.token, type: 'string' }] } : { type: 'noauth' };
+  const request = {
+    method,
+    header: body === undefined ? [] : [{ key: 'Content-Type', value: extra.contentType || 'application/json' }],
+    url: `{{${extra.baseUrlVar || 'baseUrl'}}}${endpoint}`,
+    description: extra.description || `Expected status: ${status}.`,
+    auth: extra.token ? { type: 'bearer', bearer: [{ key: 'token', value: extra.token, type: 'string' }] } : { type: 'noauth' }
+  };
   if (body !== undefined) request.body = { mode: 'raw', raw: typeof body === 'string' ? body : JSON.stringify(body, null, 2), options: { raw: { language: 'json' } } };
-  items.push({ name, request, event: [{ listen: 'test', script: { type: 'text/javascript', exec: tests } }, ...(extra.pre ? [{ listen: 'prerequest', script: { type: 'text/javascript', exec: extra.pre } }] : [])] });
+  folders[folder].item.push({
+    name,
+    request,
+    event: [
+      ...(extra.pre ? [{ listen: 'prerequest', script: { type: 'text/javascript', exec: extra.pre } }] : []),
+      { listen: 'test', script: { type: 'text/javascript', exec: tests } }
+    ]
+  });
 }
 
-// ---------------------------------------------------------------------------
-// 01 Authentication — register/login/me + failures (Person 1's contract,
-// regenerated here so the whole Part 2 flow lives in one collection file).
-// ---------------------------------------------------------------------------
-add('01 - HTTPS health check', 'GET', '/api/health', 200, undefined, { pre: ["pm.collectionVariables.set('testEmail', 'aisha.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');", "pm.collectionVariables.unset('accessToken');"], tests: ["pm.test('HTTPS URL', () => pm.expect(pm.variables.replaceIn(pm.request.url.toString())).to.match(/^https:/));"] });
-add('01 - Register freelancer', 'POST', '/api/auth/register', 201, good, { tests: ["pm.test('Freelancer created', () => pm.expect(pm.response.json().data.user.role).to.eql('freelancer'));", "pm.collectionVariables.set('userId', pm.response.json().data.user.id);"] });
-add('01 - Duplicate email', 'POST', '/api/auth/register', 409, good);
-add('01 - Login and save JWT automatically', 'POST', '/api/auth/login', 200, { email: '{{testEmail}}', password: '{{testPassword}}' }, { tests: ["pm.test('JWT returned', () => pm.expect(pm.response.json().data.token.split('.')).to.have.lengthOf(3));", "pm.collectionVariables.set('accessToken', pm.response.json().data.token);", "pm.test('15 minute lifetime', () => pm.expect(pm.response.json().data.expiresIn).to.eql(900));"] });
-add('01 - Protected profile with saved token', 'GET', '/api/auth/me', 200, undefined, { token: '{{accessToken}}', tests: ["pm.test('Correct user', () => pm.expect(pm.response.json().data.user.id).to.eql(pm.collectionVariables.get('userId')));"] });
-add('01 - Protected profile without token', 'GET', '/api/auth/me', 401);
-add('01 - Invalid token', 'GET', '/api/auth/me', 401, undefined, { token: 'not.a.valid-token' });
-add('01 - Wrong password', 'POST', '/api/auth/login', 401, { email: '{{testEmail}}', password: 'WrongPassword!7314' });
-add('01 - Unknown account', 'POST', '/api/auth/login', 401, { email: 'missing.{{testEmail}}', password: '{{testPassword}}' });
-add('01 - Missing fields', 'POST', '/api/auth/register', 400, {});
-add('01 - Invalid email', 'POST', '/api/auth/register', 400, { ...good, email: 'invalid-email' });
-add('01 - Short password', 'POST', '/api/auth/register', 400, { ...good, password: 'short' });
-add('01 - Injection object rejected', 'POST', '/api/auth/login', 400, { email: { $ne: null }, password: '{{testPassword}}' });
-add('01 - Script markup rejected', 'POST', '/api/auth/register', 400, { ...good, fullName: '<script>alert(1)</script>' });
-add('01 - Admin self-registration rejected', 'POST', '/api/auth/register', 400, { ...good, role: 'admin' });
-add('01 - Unknown fields rejected', 'POST', '/api/auth/register', 400, { ...good, isAdmin: true });
-add('01 - Malformed JSON', 'POST', '/api/auth/register', 400, '{"email":');
-add('01 - Wrong content type', 'POST', '/api/auth/login', 415, 'email=aisha@example.com', { contentType: 'text/plain' });
-add('01 - Unknown route', 'GET', '/api/does-not-exist', 404);
+const password = '{{testPassword}}';
+const gig = { title: 'Secure API integration', description: 'I will build and test a secure API integration for your project.', category: 'Development', price: 450 };
 
-// ---------------------------------------------------------------------------
-// 02 Gigs — Person 2 (Daniel)'s endpoints. Thin smoke coverage against the
-// locked API contract only; EXPAND this folder once his gigRoutes.cjs is
-// merged — these currently return 404 because the routes do not exist yet.
-// gigId/gigPrice are seeded directly into MongoDB by run-postman.cjs
-// (scripts/seed-dev-gigs.cjs) so Bookings below do not depend on this folder.
-// ---------------------------------------------------------------------------
-add('02 - Browse gigs (pending Person 2)', 'GET', '/api/gigs', 200, undefined, { description: 'Owner: Daniel. Expected to fail with 404 until gigRoutes.cjs is merged.' });
-add('02 - View seeded gig detail (pending Person 2)', 'GET', '/api/gigs/{{gigId}}', 200, undefined, { description: 'Owner: Daniel. Will return the gig seeded by scripts/seed-dev-gigs.cjs once GET /api/gigs/:id exists.' });
+// 01 Authentication
+add('01', 'HTTPS health check', 'GET', '/api/health', 200, undefined, { pre: [
+  "pm.collectionVariables.set('freelancerEmail', 'freelancer.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
+  "pm.collectionVariables.set('clientEmail', 'client.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
+  "pm.collectionVariables.set('otherFreelancerEmail', 'other.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');"
+], tests: ["pm.test('HTTPS target', () => pm.expect(pm.variables.replaceIn(pm.request.url.toString())).to.match(/^https:/));"] });
+add('01', 'Register freelancer', 'POST', '/api/auth/register', 201, { fullName: 'Aisha Freelancer', email: '{{freelancerEmail}}', password, role: 'freelancer' }, { tests: ["pm.collectionVariables.set('freelancerId', pm.response.json().data.user.id);"] });
+add('01', 'Duplicate registration rejected', 'POST', '/api/auth/register', 409, { fullName: 'Aisha Freelancer', email: '{{freelancerEmail}}', password, role: 'freelancer' });
+add('01', 'Invalid registration rejected', 'POST', '/api/auth/register', 400, { fullName: '<script>alert(1)</script>', email: 'invalid', password: 'short', role: 'admin' });
+add('01', 'Public admin registration rejected', 'POST', '/api/auth/register', 400, { fullName: 'Public Admin', email: 'admin.{{$guid}}@example.com', password, role: 'admin' });
+add('01', 'Login freelancer', 'POST', '/api/auth/login', 200, { email: '{{freelancerEmail}}', password }, { tests: ["pm.collectionVariables.set('freelancerToken', pm.response.json().data.token);"] });
+add('01', 'Invalid login rejected', 'POST', '/api/auth/login', 401, { email: '{{freelancerEmail}}', password: 'WrongPassword!7314' });
+add('01', 'Profile with JWT', 'GET', '/api/auth/me', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Correct profile', () => pm.expect(pm.response.json().data.user.id).to.eql(pm.collectionVariables.get('freelancerId')));"] });
+add('01', 'Profile without token rejected', 'GET', '/api/auth/me', 401);
+add('01', 'Malformed token rejected', 'GET', '/api/auth/me', 401, undefined, { token: 'not.a.valid-token' });
 
-// ---------------------------------------------------------------------------
-// 03 Bookings — create/list + invalid/role/rate-limit cases (Person 3).
-// ---------------------------------------------------------------------------
-add('03 - Register booking client', 'POST', '/api/auth/register', 201, { fullName: 'Client Tester', email: '{{bookingClientEmail}}', password: '{{testPassword}}', role: 'client' }, {
-  pre: ["pm.collectionVariables.set('bookingClientEmail', 'booking.client.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');", "pm.collectionVariables.set('bookingFreelancer2Email', 'booking.freelancer2.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');"]
-});
-add('03 - Login booking client', 'POST', '/api/auth/login', 200, { email: '{{bookingClientEmail}}', password: '{{testPassword}}' }, { tests: ["pm.collectionVariables.set('bookingClientToken', pm.response.json().data.token);"] });
-add('03 - Register second freelancer (not the gig owner)', 'POST', '/api/auth/register', 201, { fullName: 'Other Freelancer', email: '{{bookingFreelancer2Email}}', password: '{{testPassword}}', role: 'freelancer' });
-add('03 - Login second freelancer', 'POST', '/api/auth/login', 200, { email: '{{bookingFreelancer2Email}}', password: '{{testPassword}}' }, { tests: ["pm.collectionVariables.set('bookingFreelancer2Token', pm.response.json().data.token);"] });
-add('03 - Login seed freelancer (owns the seeded gig)', 'POST', '/api/auth/login', 200, { email: '{{seedFreelancerEmail}}', password: '{{seedFreelancerPassword}}' }, { tests: ["pm.collectionVariables.set('seedFreelancerToken', pm.response.json().data.token);", "pm.collectionVariables.set('seedFreelancerId', pm.response.json().data.user.id);"] });
+// 02 Gig Marketplace
+add('02', 'Freelancer creates gig', 'POST', '/api/gigs', 201, gig, { token: '{{freelancerToken}}', tests: [
+  "pm.test('JWT owner used', () => pm.expect(pm.response.json().data.gig.freelancer.id).to.eql(pm.collectionVariables.get('freelancerId')));",
+  "pm.collectionVariables.set('gigId', pm.response.json().data.gig.id);",
+  "pm.collectionVariables.set('gigPrice', String(pm.response.json().data.gig.price));"
+] });
+add('02', 'Public browse', 'GET', '/api/gigs', 200, undefined, { tests: ["pm.test('Gig appears in marketplace', () => pm.expect(pm.response.json().data.gigs.map(g => g.id)).to.include(pm.collectionVariables.get('gigId')));"] });
+add('02', 'Public detail', 'GET', '/api/gigs/{{gigId}}', 200, undefined, { tests: ["pm.test('Correct detail', () => pm.expect(pm.response.json().data.gig.id).to.eql(pm.collectionVariables.get('gigId')));"] });
+add('02', 'List own gigs', 'GET', '/api/gigs/mine', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Only authenticated owner gigs', () => pm.response.json().data.gigs.forEach(g => pm.expect(g.freelancer.id).to.eql(pm.collectionVariables.get('freelancerId'))));"] });
+add('02', 'Edit own gig', 'PATCH', '/api/gigs/{{gigId}}', 200, { title: 'Secure API and web integration', price: 475 }, { token: '{{freelancerToken}}', tests: ["pm.test('Edit persisted', () => pm.expect(pm.response.json().data.gig.price).to.eql(475));", "pm.collectionVariables.set('gigPrice', '475');"] });
+add('02', 'Create disposable delete target', 'POST', '/api/gigs', 201, { ...gig, title: 'Delete target' }, { token: '{{freelancerToken}}', tests: ["pm.collectionVariables.set('deleteGigId', pm.response.json().data.gig.id);"] });
+add('02', 'Delete own gig', 'DELETE', '/api/gigs/{{deleteGigId}}', 204, undefined, { token: '{{freelancerToken}}' });
+add('02', 'Deleted gig returns 404', 'GET', '/api/gigs/{{deleteGigId}}', 404);
+add('02', 'Negative price rejected', 'POST', '/api/gigs', 400, { ...gig, price: -1 }, { token: '{{freelancerToken}}' });
+add('02', 'Script markup rejected', 'POST', '/api/gigs', 400, { ...gig, title: '<script>alert(1)</script>' }, { token: '{{freelancerToken}}' });
+add('02', 'Operator object rejected', 'POST', '/api/gigs', 400, { ...gig, category: { $ne: null } }, { token: '{{freelancerToken}}' });
+add('02', 'Malformed Gig id rejected', 'GET', '/api/gigs/not-an-id', 400);
 
-add('03 - Client books the seeded gig', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, {
-  token: '{{bookingClientToken}}',
-  tests: [
-    "pm.test('Price copied from the server-side gig', () => pm.expect(pm.response.json().data.booking.price).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
-    "pm.test('Freelancer copied from the server-side gig', () => pm.expect(pm.response.json().data.booking.freelancerId).to.eql(pm.collectionVariables.get('seedFreelancerId')));",
-    "pm.test('Booking confirmed (simulated)', () => pm.expect(pm.response.json().data.booking.status).to.eql('confirmed'));",
-    "pm.test('Transaction created automatically', () => pm.expect(pm.response.json().data.transaction.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
-    "pm.collectionVariables.set('bookingId', pm.response.json().data.booking.id);"
-  ]
-});
-add('03 - Forged price/freelancer are ignored, not accepted', 'POST', '/api/bookings', 400, { gigId: '{{gigId}}', price: 1, freelancerId: '000000000000000000000000' }, { token: '{{bookingClientToken}}', description: 'Only gigId is allowlisted; a client cannot submit its own price or freelancer.' });
-add('03 - Malformed gig id rejected', 'POST', '/api/bookings', 400, { gigId: 'not-an-id' }, { token: '{{bookingClientToken}}' });
-add('03 - Non-existent gig rejected safely', 'POST', '/api/bookings', 404, { gigId: '507f1f77bcf86cd799439011' }, { token: '{{bookingClientToken}}' });
-add('03 - Operator-style gig id rejected', 'POST', '/api/bookings', 400, { gigId: { $ne: null } }, { token: '{{bookingClientToken}}' });
-add('03 - Freelancer cannot book a gig', 'POST', '/api/bookings', 403, { gigId: '{{gigId}}' }, { token: '{{bookingFreelancer2Token}}', description: 'Role-restricted server-side, not just hidden in the UI.' });
-add('03 - Booking without a token is rejected', 'POST', '/api/bookings', 401, { gigId: '{{gigId}}' });
-add('03 - Client sees their own booking', 'GET', '/api/bookings/me', 200, undefined, { token: '{{bookingClientToken}}', tests: ["pm.test('Contains the booking just created', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"] });
-add('03 - Client cannot use the freelancer booking view', 'GET', '/api/bookings/freelancer', 403, undefined, { token: '{{bookingClientToken}}' });
-add('03 - Gig-owning freelancer sees the booking', 'GET', '/api/bookings/freelancer', 200, undefined, { token: '{{seedFreelancerToken}}', tests: ["pm.test('Contains the booking', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"] });
-add('03 - A different freelancer sees no bookings for a gig they do not own', 'GET', '/api/bookings/freelancer', 200, undefined, { token: '{{bookingFreelancer2Token}}', tests: ["pm.test('Isolated from other freelancers\\' bookings', () => pm.expect(pm.response.json().data.bookings).to.eql([]));"] });
+// 03 Gig Ownership and RBAC
+add('03', 'Register client', 'POST', '/api/auth/register', 201, { fullName: 'Casey Client', email: '{{clientEmail}}', password, role: 'client' });
+add('03', 'Login client', 'POST', '/api/auth/login', 200, { email: '{{clientEmail}}', password }, { tests: ["pm.collectionVariables.set('clientToken', pm.response.json().data.token);"] });
+add('03', 'Register second freelancer', 'POST', '/api/auth/register', 201, { fullName: 'Bongani Freelancer', email: '{{otherFreelancerEmail}}', password, role: 'freelancer' });
+add('03', 'Login second freelancer', 'POST', '/api/auth/login', 200, { email: '{{otherFreelancerEmail}}', password }, { tests: ["pm.collectionVariables.set('otherFreelancerToken', pm.response.json().data.token);"] });
+add('03', 'Client cannot create gig', 'POST', '/api/gigs', 403, gig, { token: '{{clientToken}}' });
+add('03', 'Non-owner cannot edit gig', 'PATCH', '/api/gigs/{{gigId}}', 403, { title: 'Hijacked title' }, { token: '{{otherFreelancerToken}}' });
+add('03', 'Non-owner cannot delete gig', 'DELETE', '/api/gigs/{{gigId}}', 403, undefined, { token: '{{otherFreelancerToken}}' });
+add('03', 'Ownership override rejected', 'PATCH', '/api/gigs/{{gigId}}', 400, { freelancerId: '507f1f77bcf86cd799439011' }, { token: '{{freelancerToken}}' });
+add('03', 'Login isolated admin', 'POST', '/api/auth/login', 200, { email: '{{adminEmail}}', password: '{{adminPassword}}' }, { tests: ["pm.collectionVariables.set('adminToken', pm.response.json().data.token);"] });
+add('03', 'Admin overview succeeds', 'GET', '/api/admin/overview', 200, undefined, { token: '{{adminToken}}', tests: ["pm.test('Safe aggregate counts', () => pm.expect(pm.response.json().data).to.have.all.keys('users','clients','freelancers','admins','gigs','bookings','transactions'));"] });
+add('03', 'Client cannot access admin overview', 'GET', '/api/admin/overview', 403, undefined, { token: '{{clientToken}}' });
+add('03', 'Freelancer cannot access admin overview', 'GET', '/api/admin/overview', 403, undefined, { token: '{{freelancerToken}}' });
 
-// ---------------------------------------------------------------------------
-// 04 Transactions & Income — automatic records + freelancer totals (Person 3).
-// ---------------------------------------------------------------------------
-add('04 - Freelancer sees the transaction for the booking', 'GET', '/api/transactions/me', 200, undefined, { token: '{{seedFreelancerToken}}', tests: ["pm.test('Contains the linked transaction', () => pm.expect(pm.response.json().data.transactions.map(t => t.bookingId)).to.include(pm.collectionVariables.get('bookingId')));"] });
-add('04 - A different freelancer sees no transactions', 'GET', '/api/transactions/me', 200, undefined, { token: '{{bookingFreelancer2Token}}', tests: ["pm.test('No transactions for an unrelated freelancer', () => pm.expect(pm.response.json().data.transactions).to.eql([]));"] });
-add('04 - Freelancer income summary includes this booking', 'GET', '/api/income/me', 200, undefined, { token: '{{seedFreelancerToken}}', tests: ["pm.test('Income is at least the booked gig price', () => pm.expect(pm.response.json().data.totalIncome).to.be.at.least(Number(pm.collectionVariables.get('gigPrice'))));"] });
-add('04 - Client cannot read freelancer income', 'GET', '/api/income/me', 403, undefined, { token: '{{bookingClientToken}}' });
-add('04 - Income requires authentication', 'GET', '/api/income/me', 401);
+// 04 Bookings
+add('04', 'Client books gig', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', tests: [
+  "pm.test('Price derived server-side', () => pm.expect(pm.response.json().data.booking.price).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
+  "pm.test('Owner derived server-side', () => pm.expect(pm.response.json().data.booking.freelancerId).to.eql(pm.collectionVariables.get('freelancerId')));",
+  "pm.test('Transaction automatically created', () => pm.expect(pm.response.json().data.transaction.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))));",
+  "pm.collectionVariables.set('bookingId', pm.response.json().data.booking.id);"
+] });
+add('04', 'Forged price and freelancer rejected', 'POST', '/api/bookings', 400, { gigId: '{{gigId}}', price: 1, freelancerId: '507f1f77bcf86cd799439011' }, { token: '{{clientToken}}' });
+add('04', 'Freelancer cannot book', 'POST', '/api/bookings', 403, { gigId: '{{gigId}}' }, { token: '{{freelancerToken}}' });
+add('04', 'Invalid Gig rejected', 'POST', '/api/bookings', 400, { gigId: 'not-an-id' }, { token: '{{clientToken}}' });
+add('04', 'Client lists own bookings', 'GET', '/api/bookings/me', 200, undefined, { token: '{{clientToken}}', tests: ["pm.test('Own booking visible', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"] });
+add('04', 'Owner lists relevant bookings', 'GET', '/api/bookings/freelancer', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Related booking visible', () => pm.expect(pm.response.json().data.bookings.map(b => b.id)).to.include(pm.collectionVariables.get('bookingId')));"] });
+add('04', 'Unrelated freelancer booking isolation', 'GET', '/api/bookings/freelancer', 200, undefined, { token: '{{otherFreelancerToken}}', tests: ["pm.test('No unrelated bookings', () => pm.expect(pm.response.json().data.bookings).to.eql([]));"] });
 
-// ---------------------------------------------------------------------------
-// 05 RBAC & Security — missing token, wrong role, malicious input, safe errors.
-// ---------------------------------------------------------------------------
-add('05 - Freelancer-only view requires authentication', 'GET', '/api/bookings/freelancer', 401);
-add('05 - Malicious JSON body on bookings handled safely', 'POST', '/api/bookings', 400, '{"gigId":', { token: '{{bookingClientToken}}', tests: ["pm.test('Controlled JSON error', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_JSON'));"] });
-add('05 - Wrong content type on bookings rejected', 'POST', '/api/bookings', 415, 'gigId=123', { token: '{{bookingClientToken}}', contentType: 'text/plain' });
-add('05 - Errors never leak stack traces or secrets', 'GET', '/api/does-not-exist', 404, undefined, { tests: ["pm.test('No stack/secret leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/at [A-Za-z]+\\.[A-Za-z]+ \\(/); pm.expect(text.toLowerCase()).not.to.include('mongodb+srv'); });"] });
+// 05 Transactions and Income
+add('05', 'Owner sees linked transaction', 'GET', '/api/transactions/me', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Correct linked transaction', () => { const t = pm.response.json().data.transactions.find(x => x.bookingId === pm.collectionVariables.get('bookingId')); pm.expect(t.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))); });"] });
+add('05', 'Unrelated freelancer transaction isolation', 'GET', '/api/transactions/me', 200, undefined, { token: '{{otherFreelancerToken}}', tests: ["pm.test('No unrelated transactions', () => pm.expect(pm.response.json().data.transactions).to.eql([]));"] });
+add('05', 'Owner income total', 'GET', '/api/income/me', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Correct income', () => pm.expect(pm.response.json().data.totalIncome).to.eql(Number(pm.collectionVariables.get('gigPrice'))));"] });
+add('05', 'Unrelated freelancer has zero income', 'GET', '/api/income/me', 200, undefined, { token: '{{otherFreelancerToken}}', tests: ["pm.test('Zero unrelated income', () => pm.expect(pm.response.json().data.totalIncome).to.eql(0));"] });
+add('05', 'Client cannot access income', 'GET', '/api/income/me', 403, undefined, { token: '{{clientToken}}' });
 
-// ---------------------------------------------------------------------------
-// 06 Rate limiting demonstration — runs against an isolated server
-// (rateLimitBaseUrl) with a deliberately tiny bookingRateLimitMax (see
-// run-postman.cjs), so exactly the Nth request below trips the limiter
-// regardless of how many bookings happened earlier in this run.
-// ---------------------------------------------------------------------------
-add('06 - Booking rate limit: request 1 (allowed)', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{bookingClientToken}}', baseUrlVar: 'rateLimitBaseUrl' });
-add('06 - Booking rate limit: request 2 (allowed)', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{bookingClientToken}}', baseUrlVar: 'rateLimitBaseUrl' });
-add('06 - Booking rate limit: request 3 (429 with Retry-After)', 'POST', '/api/bookings', 429, { gigId: '{{gigId}}' }, {
-  token: '{{bookingClientToken}}', baseUrlVar: 'rateLimitBaseUrl',
-  tests: ["pm.test('Meaningful 429 body', () => pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED'));", "pm.test('Retry-After header present', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);"]
-});
+// 06 Security and Error Cases
+add('06', 'Malformed JSON controlled error', 'POST', '/api/bookings', 400, '{"gigId":', { token: '{{clientToken}}', tests: ["pm.test('Controlled parser error', () => pm.expect(pm.response.json().error.code).to.eql('INVALID_JSON'));"] });
+add('06', 'Wrong content type rejected', 'POST', '/api/bookings', 415, 'gigId=123', { token: '{{clientToken}}', contentType: 'text/plain' });
+add('06', 'Unknown endpoint returns 404', 'GET', '/api/does-not-exist', 404);
+add('06', 'Rate limit request one', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', baseUrlVar: 'rateLimitBaseUrl' });
+add('06', 'Rate limit request two', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', baseUrlVar: 'rateLimitBaseUrl' });
+add('06', 'Rate limit request three blocked', 'POST', '/api/bookings', 429, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', baseUrlVar: 'rateLimitBaseUrl', tests: ["pm.test('Retry-After present', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);", "pm.test('Safe limiter code', () => pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED'));"] });
 
 const collection = {
   info: {
-    name: 'HustleHub+ | Part 2 Secure Stack',
+    name: 'HustleHub+ | Part 2 Full Regression',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
-    description: 'Run top-to-bottom in one go via Newman (npm run test:postman), which seeds a demo gig and starts two isolated HTTPS servers automatically — no manual copy/paste of ids or tokens required. Folder 01 regenerates Part 1\'s auth coverage. Folder 02 (Gigs) is Daniel\'s and is expected to fail with 404 until his gig routes are merged — everything from folder 03 onward only depends on Person 1\'s models/auth and Person 3\'s own code, so it should pass today. Folders 03-05 are Person 3\'s bookings/transactions/income/RBAC coverage. Folder 06 proves the booking rate limiter against a second, isolated server so earlier booking traffic in this run can never change the outcome. Trust certs/localhost.pem in Postman before running manually. All credentials are disposable test data.'
+    description: 'Run with npm run test:postman. The automated runner uses HTTPS and mongodb-memory-server, then destroys all disposable data in a guaranteed finalization path.'
   },
   variable: [
     { key: 'baseUrl', value: 'https://localhost:4000' },
     { key: 'rateLimitBaseUrl', value: 'https://localhost:4001' },
-    { key: 'testEmail', value: '' },
     { key: 'testPassword', value: 'DemoPassphrase!7314' },
-    { key: 'accessToken', value: '' },
-    { key: 'userId', value: '' },
-    { key: 'gigId', value: '', description: 'Printed by `npm run seed:dev`, or set automatically by run-postman.cjs.' },
-    { key: 'gigPrice', value: '450' },
-    { key: 'seedFreelancerEmail', value: SEED_FREELANCER_EMAIL },
-    { key: 'seedFreelancerPassword', value: SEED_FREELANCER_PASSWORD },
-    { key: 'seedFreelancerId', value: '' },
-    { key: 'seedFreelancerToken', value: '' },
-    { key: 'bookingClientEmail', value: '' },
-    { key: 'bookingClientToken', value: '' },
-    { key: 'bookingFreelancer2Email', value: '' },
-    { key: 'bookingFreelancer2Token', value: '' },
-    { key: 'bookingId', value: '' }
+    { key: 'freelancerEmail', value: '' }, { key: 'freelancerId', value: '' }, { key: 'freelancerToken', value: '' },
+    { key: 'clientEmail', value: '' }, { key: 'clientToken', value: '' },
+    { key: 'otherFreelancerEmail', value: '' }, { key: 'otherFreelancerToken', value: '' },
+    { key: 'adminEmail', value: '' }, { key: 'adminPassword', value: '' }, { key: 'adminToken', value: '' },
+    { key: 'gigId', value: '' }, { key: 'deleteGigId', value: '' }, { key: 'gigPrice', value: '' }, { key: 'bookingId', value: '' }
   ],
-  item: items
+  item: Object.values(folders)
 };
 
 fs.mkdirSync(path.join(__dirname, '../postman'), { recursive: true });
-fs.writeFileSync(path.join(__dirname, '../postman/HustleHub-Part2.postman_collection.json'), JSON.stringify(collection, null, 2) + '\n');
-console.log(`Generated ${items.length} Postman requests across 6 folders -> postman/HustleHub-Part2.postman_collection.json`);
+fs.writeFileSync(path.join(__dirname, '../postman/HustleHub-Part2.postman_collection.json'), `${JSON.stringify(collection, null, 2)}\n`);
+console.log(`Generated ${Object.values(folders).reduce((total, folder) => total + folder.item.length, 0)} requests across ${Object.keys(folders).length} folders.`);
