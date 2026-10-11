@@ -1,8 +1,8 @@
 {
-  "name": "hustlehub-part1",
+  "name": "hustlehub-plus-part2",
   "version": "1.0.0",
   "private": true,
-  "description": "HustleHub+ Part 1 secure backend foundations",
+  "description": "HustleHub+ Part 2 secure freelance marketplace",
   "engines": {
     "node": ">=24"
   },
@@ -13,18 +13,23 @@
     "test": "node --test test/*.test.cjs",
     "test:postman": "node --env-file=.env scripts/run-postman.cjs",
     "postman:build": "node scripts/build-collection.cjs",
+    "openapi:validate": "node scripts/validate-openapi.cjs",
+    "security:server": "node scripts/security-test-server.cjs",
+    "smoke:atlas": "node --env-file=.env scripts/smoke-atlas.cjs",
+    "admin:create": "node --env-file=.env scripts/create-admin.cjs",
     "seed:dev": "node --env-file=.env scripts/seed-dev-gigs.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.7.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.11.1"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.3.0",
-    "newman": "^6.2.2"
+    "newman": "^6.2.3",
+    "yaml": "^2.9.1"
   }
 }
