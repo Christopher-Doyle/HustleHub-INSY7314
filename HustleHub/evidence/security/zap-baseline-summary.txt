@@ -1,0 +1,8 @@
+OWASP ZAP 2.17.0 baseline scan — 2026-10-11
+Target: isolated local HTTPS HustleHub+ API, port 4040
+High: 0
+Medium: 0
+Low: 0
+Informational: 2
+Reviewed: intentional non-storable/cache-control behavior on dynamic API and 404 responses.
+Result: PASS; no application vulnerability requiring remediation.

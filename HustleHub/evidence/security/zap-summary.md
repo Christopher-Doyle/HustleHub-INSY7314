@@ -1,14 +1,14 @@
-# OWASP ZAP execution status
+# OWASP ZAP security summary
 
-Date checked: 2026-10-11
+Date executed: 2026-10-11
 
-The repository includes a reproducible isolated OWASP ZAP workflow, but no ZAP scan result is claimed in this evidence file.
+- Tool: official OWASP ZAP stable container, version 2.17.0
+- Scope: isolated HTTPS HustleHub+ API on local port 4040
+- Data: disposable `mongodb-memory-server`; no Atlas data
+- Baseline: 0 High, 0 Medium, 0 Low, 2 Informational
+- OpenAPI API scan final rerun: 0 High, 0 Medium, 0 Low, 4 Informational
+- Full active scan: 0 High, 0 Medium, 0 Low, 2 Informational; 142 rules passed
 
-- Docker CLI: available
-- Docker Desktop Linux engine: unavailable at verification time
-- Native ZAP CLI/Desktop: not installed
-- Baseline scan: not executed
-- Full/active scan: not executed
-- OpenAPI API scan: not executed
+One genuine issue was discovered on the first API scan: a null byte in the public Gig search query caused a 500 response. Control characters are now rejected with a controlled 400 response, regression coverage was added, and the API scan reran cleanly.
 
-To execute safely, start Docker Desktop, run `npm run security:server`, and then run `powershell -ExecutionPolicy Bypass -File scripts/run-zap.ps1` from another terminal. Raw reports are written to the ignored `evidence/private/zap/` directory. Review and sanitise them before updating this summary.
+Reviewed informational results relate to intentional non-cacheable API responses, expected controlled 4xx responses from invalid or unauthenticated attack requests, login-operation detection, and user-agent fuzzing. No alert was suppressed. Raw reports remain in the ignored `evidence/private/zap/` directory and contain no tracked evidence.
