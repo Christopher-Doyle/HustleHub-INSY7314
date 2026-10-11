@@ -9,6 +9,7 @@ import BookGig from './pages/Bookings/BookGig.jsx';
 import MyBookings from './pages/Bookings/MyBookings.jsx';
 import FreelancerBookings from './pages/Freelancer/FreelancerBookings.jsx';
 import FreelancerIncome from './pages/Freelancer/FreelancerIncome.jsx';
+import GigDetail from './pages/Gigs/GigDetail.jsx';
 
 export default function App() {
   return (
@@ -27,9 +28,12 @@ export default function App() {
           <Route path="/freelancer/bookings" element={<ProtectedRoute roles={['freelancer']}><FreelancerBookings /></ProtectedRoute>} />
           <Route path="/freelancer/income" element={<ProtectedRoute roles={['freelancer']}><FreelancerIncome /></ProtectedRoute>} />
 
-          {/* Daniel's Gig pages (client/src/pages/Gigs/*) and Christopher's
-              Admin overview (client/src/pages/Admin/*) are not routed here
-              yet — add them as they land. */}
+          {/* Daniel's gig detail page, pulled onto this branch on its own (without
+              the rest of his client/ build) so the "Book this gig" button above has
+              somewhere to live and can be tested end-to-end. /gigs (the browse/list
+              page) and the freelancer-facing gig management pages still only exist on
+              his branch — route them here too once the full client/ merge happens. */}
+          <Route path="/gigs/:id" element={<GigDetail />} />
 
           <Route path="*" element={<Home />} />
         </Routes>
