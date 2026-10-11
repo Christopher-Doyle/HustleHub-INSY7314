@@ -121,7 +121,7 @@ test('regex characters in search are treated as literal text', async () => {
 });
 
 test('invalid browse query parameters are rejected with 400', async () => {
-  for (const query of ['limit=abc', 'limit=0', 'limit=500', 'page=-1', 'category=a&category=b']) {
+  for (const query of ['limit=abc', 'limit=0', 'limit=500', 'page=-1', 'category=a&category=b', 'search=%00']) {
     const r = await request('GET', `/api/gigs?${query}`);
     assert.equal(r.status, 400, query);
     assert.equal(r.body.error.code, 'VALIDATION_ERROR', query);

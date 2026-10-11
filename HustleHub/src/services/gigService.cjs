@@ -6,6 +6,7 @@ require('../models/user.cjs');
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
 const MAX_MINE = 200;
+const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f]/;
 
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -37,7 +38,7 @@ function toPublicGig(gig) {
 function readStringParam(query, name, maxLength) {
   const value = query[name];
   if (value === undefined || value === '') return undefined;
-  if (typeof value !== 'string' || value.length > maxLength) {
+  if (typeof value !== 'string' || value.length > maxLength || CONTROL_CHARACTERS.test(value)) {
     throw new ApiError(400, 'VALIDATION_ERROR', `Query parameter "${name}" is invalid.`);
   }
   return value.trim();
