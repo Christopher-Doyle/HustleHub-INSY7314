@@ -11,7 +11,9 @@
     "start": "node --env-file=.env src/server.cjs",
     "dev": "node --watch --env-file=.env src/server.cjs",
     "test": "node --test test/*.test.cjs",
-    "test:postman": "node --env-file=.env scripts/run-postman.cjs"
+    "test:postman": "node --env-file=.env scripts/run-postman.cjs",
+    "postman:build": "node scripts/build-collection.cjs",
+    "seed:dev": "node --env-file=.env scripts/seed-dev-gigs.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
