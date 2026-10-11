@@ -1,22 +1,24 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// The API only speaks HTTPS with a local self-signed certificate, so the dev proxy
-// must accept it. The browser itself only ever talks to the Vite dev server.
-const API_TARGET = process.env.VITE_API_TARGET || 'https://localhost:4000';
-
 export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    // Proxies /api to the HTTPS backend server-to-server. This avoids two
+    // local-dev problems at once: the backend has no CORS headers (it isn't
+    // meant to be called cross-origin), and its self-signed certificate
+    // would otherwise need to be trusted manually in the browser (the same
+    // problem Postman has — see certs/ in the backend README). `secure:
+    // false` only relaxes TLS verification for this server-to-server proxy
+    // hop, never for the browser.
     proxy: {
-      '/api': { target: API_TARGET, changeOrigin: true, secure: false }
+      '/api': { target: 'https://localhost:4000', changeOrigin: true, secure: false }
     }
   },
   test: {
     environment: 'jsdom',
-    globals: true,
-    setupFiles: './src/test/setup.js',
-    css: false
+    setupFiles: ['./src/setupTests.js'],
+    globals: true
   }
 });

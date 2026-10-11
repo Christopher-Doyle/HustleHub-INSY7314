@@ -1,34 +1,43 @@
-import { Navigate, NavLink, Route, Routes } from 'react-router-dom';
-import BrowseGigs from './pages/Gigs/BrowseGigs.jsx';
+import { Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './auth/AuthContext.jsx';
+import NavBar from './components/NavBar.jsx';
+import ProtectedRoute from './components/ProtectedRoute.jsx';
+import Home from './pages/Home.jsx';
+import Login from './auth/Login.jsx';
+import Register from './auth/Register.jsx';
+import BookGig from './pages/Bookings/BookGig.jsx';
+import MyBookings from './pages/Bookings/MyBookings.jsx';
+import FreelancerBookings from './pages/Freelancer/FreelancerBookings.jsx';
+import FreelancerIncome from './pages/Freelancer/FreelancerIncome.jsx';
 import GigDetail from './pages/Gigs/GigDetail.jsx';
-import MyGigs from './pages/Gigs/MyGigs.jsx';
-import CreateGig from './pages/Gigs/CreateGig.jsx';
-import EditGig from './pages/Gigs/EditGig.jsx';
-import RequireFreelancer from './components/RequireFreelancer.jsx';
-import { useSessionUser } from './services/session.js';
 
 export default function App() {
-  const user = useSessionUser();
   return (
-    <div className="app">
-      <header className="app-header">
-        <span className="brand">HustleHub+</span>
-        <nav aria-label="Main">
-          <NavLink to="/gigs" end>Browse gigs</NavLink>
-          {user?.role === 'freelancer' ? <NavLink to="/my-gigs">My gigs</NavLink> : null}
-        </nav>
-      </header>
-      <main className="app-main">
+    <AuthProvider>
+      <NavBar />
+      <main className="page">
         <Routes>
-          <Route path="/" element={<Navigate to="/gigs" replace />} />
-          <Route path="/gigs" element={<BrowseGigs />} />
+          <Route path="/" element={<Home />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+
+          {/* Person 3's pages */}
+          <Route path="/book" element={<ProtectedRoute roles={['client']}><BookGig /></ProtectedRoute>} />
+          <Route path="/book/:gigId" element={<ProtectedRoute roles={['client']}><BookGig /></ProtectedRoute>} />
+          <Route path="/bookings/mine" element={<ProtectedRoute roles={['client']}><MyBookings /></ProtectedRoute>} />
+          <Route path="/freelancer/bookings" element={<ProtectedRoute roles={['freelancer']}><FreelancerBookings /></ProtectedRoute>} />
+          <Route path="/freelancer/income" element={<ProtectedRoute roles={['freelancer']}><FreelancerIncome /></ProtectedRoute>} />
+
+          {/* Daniel's gig detail page, pulled onto this branch on its own (without
+              the rest of his client/ build) so the "Book this gig" button above has
+              somewhere to live and can be tested end-to-end. /gigs (the browse/list
+              page) and the freelancer-facing gig management pages still only exist on
+              his branch — route them here too once the full client/ merge happens. */}
           <Route path="/gigs/:id" element={<GigDetail />} />
-          <Route path="/my-gigs" element={<MyGigs />} />
-          <Route path="/my-gigs/new" element={<RequireFreelancer><CreateGig /></RequireFreelancer>} />
-          <Route path="/my-gigs/:id/edit" element={<RequireFreelancer><EditGig /></RequireFreelancer>} />
-          <Route path="*" element={<p className="state-message">Page not found.</p>} />
+
+          <Route path="*" element={<Home />} />
         </Routes>
       </main>
-    </div>
+    </AuthProvider>
   );
 }

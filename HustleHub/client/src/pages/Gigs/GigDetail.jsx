@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { getGig } from '../../services/gigApi.js';
 import { formatPrice } from '../../utils/format.js';
+import { useSessionUser } from '../../services/session.js';
 
 function formatDate(value) {
   const date = new Date(value);
@@ -11,6 +12,7 @@ function formatDate(value) {
 export default function GigDetail() {
   const { id } = useParams();
   const [state, setState] = useState({ status: 'loading', gig: null, error: '' });
+  const sessionUser = useSessionUser();
 
   const load = useCallback(() => {
     let cancelled = false;
@@ -49,6 +51,22 @@ export default function GigDetail() {
           </p>
           <h2 className="section-title">About this gig</h2>
           <p className="gig-detail-description">{state.gig.description}</p>
+
+          {/* Person 3: booking entry point. Role is read from services/session.js per
+              Daniel's integration note — this expects AuthContext to call
+              setSessionUser() on login/register; wire that up if it doesn't already.
+              The actual booking POST happens on /book/:gigId
+              (client/src/pages/Bookings/BookGig.jsx), which re-derives price and
+              freelancer from the gig record server-side and never trusts this page. */}
+          {sessionUser?.role === 'client' ? (
+            <Link to={`/book/${state.gig.id}`} className="btn">Book this gig</Link>
+          ) : sessionUser?.role === 'freelancer' ? (
+            <p className="state-message">
+              {state.gig.freelancer?.id === sessionUser.id ? 'This is your own gig.' : 'Only clients can book gigs.'}
+            </p>
+          ) : (
+            <p className="state-message"><Link to="/login">Log in</Link> as a client to book this gig.</p>
+          )}
         </article>
       ) : null}
     </section>
