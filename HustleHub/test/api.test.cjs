@@ -16,7 +16,7 @@ const { requireRole } = require('../src/middleware/requireRole.cjs');
 const { errorHandler } = require('../src/middleware/errorHandler.cjs');
 const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
 const key = fs.readFileSync(path.join(__dirname, '../certs/localhost-key.pem'));
-const credentials = { fullName: 'Aisha Khan', email: 'aisha@example.com', password: 'DemoPassphrase!7314', role: 'freelancer' };
+const credentials = { fullName: 'Aisha Khan', email: 'aisha@example.com', password: randomBytes(24).toString('hex'), role: 'freelancer' };
 let mongo, config, server, port, token, user;
 
 function request(method, route, body, headers = {}, target = port, ca = cert) {
@@ -106,8 +106,9 @@ test('login produces a signed 15-minute token with identity and role; profile wo
   assert.deepEqual(profile.body.data.user, user);
 });
 test('unknown accounts and wrong passwords have identical safe 401 errors', async () => {
-  const a = await request('POST', '/api/auth/login', { email: credentials.email, password: 'WrongPassword!7314' });
-  const b = await request('POST', '/api/auth/login', { email: 'unknown@example.com', password: 'WrongPassword!7314' });
+  const wrongPassword = randomBytes(24).toString('hex');
+  const a = await request('POST', '/api/auth/login', { email: credentials.email, password: wrongPassword });
+  const b = await request('POST', '/api/auth/login', { email: 'unknown@example.com', password: wrongPassword });
   assert.equal(a.status, 401); assert.equal(b.status, 401);
   assert.deepEqual(a.body.error, b.body.error);
 });

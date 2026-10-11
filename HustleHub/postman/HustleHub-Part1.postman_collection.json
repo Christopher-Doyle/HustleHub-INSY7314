@@ -15,7 +15,7 @@
     },
     {
       "key": "testPassword",
-      "value": "DemoPassphrase!7314"
+      "value": ""
     },
     {
       "key": "accessToken",
@@ -54,7 +54,8 @@
             "type": "text/javascript",
             "exec": [
               "pm.collectionVariables.set('testEmail', 'aisha.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
-              "pm.collectionVariables.unset('accessToken');"
+              "pm.collectionVariables.unset('accessToken');",
+              "pm.collectionVariables.set('testPassword', pm.variables.replaceIn('{{$guid}}'));"
             ]
           }
         }
@@ -295,7 +296,7 @@
         },
         "body": {
           "mode": "raw",
-          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"WrongPassword!7314\"\n}",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{$guid}}\"\n}",
           "options": {
             "raw": {
               "language": "json"

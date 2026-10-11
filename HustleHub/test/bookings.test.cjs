@@ -31,7 +31,7 @@ function request(method, route, body, headers = {}, target = port) {
 }
 
 async function registerAndLogin(overrides) {
-  const body = { fullName: 'Test User', email: `${randomBytes(6).toString('hex')}@example.com`, password: 'DemoPassphrase!7314', ...overrides };
+  const body = { fullName: 'Test User', email: `${randomBytes(6).toString('hex')}@example.com`, password: randomBytes(24).toString('hex'), ...overrides };
   await request('POST', '/api/auth/register', body);
   const login = await request('POST', '/api/auth/login', { email: body.email, password: body.password });
   return { token: login.body.data.token, user: login.body.data.user };

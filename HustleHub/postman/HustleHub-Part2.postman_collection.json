@@ -15,7 +15,7 @@
     },
     {
       "key": "testPassword",
-      "value": "DemoPassphrase!7314"
+      "value": ""
     },
     {
       "key": "freelancerEmail",
@@ -95,6 +95,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
+                  "pm.collectionVariables.set('testPassword', pm.variables.replaceIn('{{$guid}}'));",
                   "pm.collectionVariables.set('freelancerEmail', 'freelancer.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
                   "pm.collectionVariables.set('clientEmail', 'client.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
                   "pm.collectionVariables.set('otherFreelancerEmail', 'other.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');"
@@ -335,7 +336,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"{{freelancerEmail}}\",\n  \"password\": \"WrongPassword!7314\"\n}",
+              "raw": "{\n  \"email\": \"{{freelancerEmail}}\",\n  \"password\": \"{{$guid}}\"\n}",
               "options": {
                 "raw": {
                   "language": "json"

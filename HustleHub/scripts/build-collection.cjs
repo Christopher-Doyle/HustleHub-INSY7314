@@ -46,6 +46,7 @@ const gig = { title: 'Secure API integration', description: 'I will build and te
 
 // 01 Authentication
 add('01', 'HTTPS health check', 'GET', '/api/health', 200, undefined, { pre: [
+  "pm.collectionVariables.set('testPassword', pm.variables.replaceIn('{{$guid}}'));",
   "pm.collectionVariables.set('freelancerEmail', 'freelancer.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
   "pm.collectionVariables.set('clientEmail', 'client.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');",
   "pm.collectionVariables.set('otherFreelancerEmail', 'other.' + pm.variables.replaceIn('{{$guid}}') + '@example.com');"
@@ -55,7 +56,7 @@ add('01', 'Duplicate registration rejected', 'POST', '/api/auth/register', 409, 
 add('01', 'Invalid registration rejected', 'POST', '/api/auth/register', 400, { fullName: '<script>alert(1)</script>', email: 'invalid', password: 'short', role: 'admin' });
 add('01', 'Public admin registration rejected', 'POST', '/api/auth/register', 400, { fullName: 'Public Admin', email: 'admin.{{$guid}}@example.com', password, role: 'admin' });
 add('01', 'Login freelancer', 'POST', '/api/auth/login', 200, { email: '{{freelancerEmail}}', password }, { tests: ["pm.collectionVariables.set('freelancerToken', pm.response.json().data.token);"] });
-add('01', 'Invalid login rejected', 'POST', '/api/auth/login', 401, { email: '{{freelancerEmail}}', password: 'WrongPassword!7314' });
+add('01', 'Invalid login rejected', 'POST', '/api/auth/login', 401, { email: '{{freelancerEmail}}', password: '{{$guid}}' });
 add('01', 'Profile with JWT', 'GET', '/api/auth/me', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Correct profile', () => pm.expect(pm.response.json().data.user.id).to.eql(pm.collectionVariables.get('freelancerId')));"] });
 add('01', 'Profile without token rejected', 'GET', '/api/auth/me', 401);
 add('01', 'Malformed token rejected', 'GET', '/api/auth/me', 401, undefined, { token: 'not.a.valid-token' });
@@ -130,7 +131,7 @@ const collection = {
   variable: [
     { key: 'baseUrl', value: 'https://localhost:4000' },
     { key: 'rateLimitBaseUrl', value: 'https://localhost:4001' },
-    { key: 'testPassword', value: 'DemoPassphrase!7314' },
+    { key: 'testPassword', value: '' },
     { key: 'freelancerEmail', value: '' }, { key: 'freelancerId', value: '' }, { key: 'freelancerToken', value: '' },
     { key: 'clientEmail', value: '' }, { key: 'clientToken', value: '' },
     { key: 'otherFreelancerEmail', value: '' }, { key: 'otherFreelancerToken', value: '' },

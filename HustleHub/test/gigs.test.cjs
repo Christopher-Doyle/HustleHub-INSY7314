@@ -13,7 +13,7 @@ const { Gig } = require('../src/models/gig.cjs');
 
 const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
 const key = fs.readFileSync(path.join(__dirname, '../certs/localhost-key.pem'));
-const PASSWORD = 'DemoPassphrase!7314';
+const PASSWORD = randomBytes(24).toString('hex');
 const validGig = { title: 'Logo design', description: 'I will design a clean modern logo.', category: 'Design', price: 150 };
 let mongo, config, server, port, freelancer, otherFreelancer, client;
 
