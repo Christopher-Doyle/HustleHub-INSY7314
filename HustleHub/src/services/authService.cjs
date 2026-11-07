@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { randomBytes } = require('node:crypto');
+const { randomBytes, randomUUID } = require('node:crypto');
 const { ApiError } = require('../utils/http.cjs');
 const { publicUser } = require('../models/user.cjs');
 
@@ -21,11 +21,16 @@ async function createAuthService(User, config) {
       }
     },
     async login({ email, password }) {
-      const user = await User.findOne({ email }).select('+passwordHash');
+      const user = await User.findOne({ email }).select('+passwordHash +failedLoginAttempts +lockedUntil');
+      if (user?.lockedUntil && user.lockedUntil > new Date()) throw new ApiError(423, 'ACCOUNT_LOCKED', 'Account temporarily locked after repeated failed sign-in attempts.');
       const matches = await bcrypt.compare(password, user ? user.passwordHash : dummyHash);
-      if (!user || !matches) throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
+      if (!user || !matches) {
+        if (user) { user.failedLoginAttempts = (user.failedLoginAttempts || 0) + 1; if (user.failedLoginAttempts >= 5) user.lockedUntil = new Date(Date.now() + 15 * 60 * 1000); await user.save(); }
+        throw new ApiError(401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
+      }
+      if (user.failedLoginAttempts || user.lockedUntil) { user.failedLoginAttempts = 0; user.lockedUntil = null; await user.save(); }
       const token = jwt.sign({ id: user.id, role: user.role }, config.secret, {
-        algorithm: 'HS256', subject: user.id, issuer: config.issuer, audience: config.audience, expiresIn: config.expiresIn
+        algorithm: 'HS256', subject: user.id, issuer: config.issuer, audience: config.audience, expiresIn: config.expiresIn, jwtid: randomUUID()
       });
       return { token, tokenType: 'Bearer', expiresIn: 900, user: publicUser(user) };
     }

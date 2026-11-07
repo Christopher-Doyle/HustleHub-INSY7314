@@ -5,6 +5,8 @@ const userSchema = new mongoose.Schema({
   email: { type: String, required: true, trim: true, lowercase: true, maxlength: 254, unique: true },
   passwordHash: { type: String, required: true, select: false },
   role: { type: String, required: true, enum: ['client', 'freelancer', 'admin'], default: 'client' }
+  ,failedLoginAttempts: { type: Number, default: 0, select: false }
+  ,lockedUntil: { type: Date, default: null, select: false }
 }, { timestamps: true, versionKey: false });
 
 function publicUser(user) {

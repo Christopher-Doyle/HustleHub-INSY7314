@@ -105,6 +105,26 @@ test('login produces a signed 15-minute token with identity and role; profile wo
   assert.equal(profile.status, 200);
   assert.deepEqual(profile.body.data.user, user);
 });
+test('logout revokes the current JWT while a separately issued token remains valid', async () => {
+  const first = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
+  const second = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
+  const revokedToken = first.body.data.token;
+  const activeToken = second.body.data.token;
+  assert.equal((await request('POST', '/api/auth/logout', undefined, { authorization: `Bearer ${revokedToken}` })).status, 200);
+  assert.equal((await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${revokedToken}` })).status, 401);
+  assert.equal((await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${activeToken}` })).status, 200);
+});
+test('five failed passwords lock an account and block the correct password', async () => {
+  const lockEmail = 'lockout@example.com';
+  await request('POST', '/api/auth/register', { ...credentials, email: lockEmail });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await request('POST', '/api/auth/login', { email: lockEmail, password: randomBytes(24).toString('hex') });
+    assert.equal(response.status, 401);
+  }
+  const locked = await request('POST', '/api/auth/login', { email: lockEmail, password: credentials.password });
+  assert.equal(locked.status, 423);
+  assert.equal(locked.body.error.code, 'ACCOUNT_LOCKED');
+});
 test('unknown accounts and wrong passwords have identical safe 401 errors', async () => {
   const wrongPassword = randomBytes(24).toString('hex');
   const a = await request('POST', '/api/auth/login', { email: credentials.email, password: wrongPassword });

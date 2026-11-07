@@ -9,6 +9,7 @@ function authRoutes(service, User, config, limiter) {
   router.post('/register', limiter, validateAuthInput('register'), controller.register);
   router.post('/login', limiter, validateAuthInput('login'), controller.login);
   router.get('/me', protect(User, config), controller.me);
+  router.post('/logout', protect(User, config), controller.logout);
   return router;
 }
 module.exports = { authRoutes };

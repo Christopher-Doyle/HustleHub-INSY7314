@@ -21,6 +21,7 @@ const { createGigMutationRateLimiter } = require('./middleware/gigRateLimit.cjs'
 const { createCorsPolicy } = require('./middleware/corsPolicy.cjs');
 const { errorHandler } = require('./middleware/errorHandler.cjs');
 const { ApiError, success } = require('./utils/http.cjs');
+const { requestLogger } = require('./middleware/requestLogger.cjs');
 
 async function createApp(config, {
   User = UserModel, Gig = GigModel, Booking = BookingModel, Transaction = TransactionModel,
@@ -29,6 +30,7 @@ async function createApp(config, {
   const app = express();
   app.disable('x-powered-by');
   app.use((req, res, next) => { req.id = randomUUID(); res.set('X-Request-Id', req.id); res.set('Cache-Control', 'no-store'); next(); });
+  app.use(requestLogger);
   app.use(helmet({ contentSecurityPolicy: { directives: {
     defaultSrc: ["'self'"],
     baseUri: ["'self'"],
