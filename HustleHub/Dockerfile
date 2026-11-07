@@ -14,6 +14,6 @@ COPY --chown=hustlehub:hustlehub package.json ./
 COPY docker-entrypoint.sh /usr/local/bin/hustlehub-entrypoint
 RUN chmod 755 /usr/local/bin/hustlehub-entrypoint
 EXPOSE 4000
-HEALTHCHECK --interval=30s --timeout=3s CMD wget --no-check-certificate -qO- https://localhost:4000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=5s CMD node -e "const https=require('node:https');const timer=setTimeout(()=>process.exit(1),4000);https.get({hostname:'127.0.0.1',port:4000,path:'/api/health',rejectUnauthorized:false},response=>{clearTimeout(timer);process.exit(response.statusCode===200?0:1)}).on('error',()=>process.exit(1))"
 ENTRYPOINT ["hustlehub-entrypoint"]
 CMD ["node","src/server.cjs"]

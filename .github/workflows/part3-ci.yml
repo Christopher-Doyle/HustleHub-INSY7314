@@ -43,6 +43,7 @@ jobs:
           docker compose logs --no-color mongo api client
           for id in $(docker compose ps -aq); do
             docker inspect --format '{{.Name}} exit={{.State.ExitCode}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} error={{.State.Error}}' "$id"
+            docker inspect --format '{{if .State.Health}}{{range .State.Health.Log}}health-exit={{.ExitCode}} output={{printf "%q" .Output}}{{println}}{{end}}{{end}}' "$id"
           done
       - run: node scripts/docker-smoke.cjs
         working-directory: HustleHub
