@@ -19,6 +19,7 @@ function loadConfig(env = process.env) {
       return url.origin !== value || !['http:', 'https:'].includes(url.protocol);
     } catch { return true; }
   })) throw new Error('CLIENT_ORIGINS must contain comma-separated HTTP(S) origins without paths.');
+  if (env.LOG_EXPORT_URL && !env.LOG_EXPORT_URL.startsWith('https://')) throw new Error('LOG_EXPORT_URL must use HTTPS.');
   return Object.freeze({
     secret: env.JWT_SECRET,
     port,
@@ -28,7 +29,10 @@ function loadConfig(env = process.env) {
     clientOrigins,
     issuer: 'hustlehub-api',
     audience: 'hustlehub-client',
-    expiresIn: '15m'
+    expiresIn: '15m',
+    logExportUrl: env.LOG_EXPORT_URL || '',
+    logExportToken: env.LOG_EXPORT_TOKEN || '',
+    logExportTimeoutMs: Number(env.LOG_EXPORT_TIMEOUT_MS || 2000)
   });
 }
 module.exports = { loadConfig };
