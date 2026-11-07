@@ -34,6 +34,9 @@ jobs:
         working-directory: HustleHub
       - run: docker compose up -d --wait
         working-directory: HustleHub
+      - name: Verify HTTPS over IPv4 inside Nginx
+        run: docker compose exec -T client wget --no-check-certificate -S -O /dev/null https://127.0.0.1:8443/
+        working-directory: HustleHub
       - if: failure()
         name: Show sanitised container diagnostics
         shell: bash
