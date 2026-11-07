@@ -21,3 +21,5 @@ Open [the local app](https://localhost:5173) or check [the API through Nginx](ht
 - [GitHub Actions on main](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions?query=branch%3Amain) contains the test, build, Docker smoke and Semgrep runs.
 - [Static-analysis report](HustleHub/evidence/part3-static-analysis.md) explains the rules and links the JSON artifact.
 - [Demonstration guide](HustleHub/docs/PART3-DEMO-GUIDE.md) gives the recording sequence. The final video link and live cloud-receipt evidence are pending.
+- [Lecturer's submission checklist](HustleHub/docs/PART3-SUBMISSION.md) identifies remaining evidence and Classroom50 checks.
+- [Sources and AI-use declaration](HustleHub/docs/SOURCES-AND-AI-DECLARATION.md) records references and known AI assistance for team review.

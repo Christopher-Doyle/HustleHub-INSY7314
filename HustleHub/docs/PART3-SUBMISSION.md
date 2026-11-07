@@ -1,0 +1,35 @@
+# Part 3 submission checklist
+
+Submit the complete Parts 1–3 application. The repository root README leads to the full setup, test instructions, security review, and evidence.
+
+| Lecturer requirement | Where to verify it |
+|---|---|
+| Preserve Parts 1 and 2 | Backend, frontend and Newman regressions cover the earlier authentication, roles, gig and booking flows. The Compose smoke test covers the integrated flow. Compare any individual marking feedback against the final app before submission |
+| Tax, income and data security | See the [financial design and threat review](../README.md). The API derives amounts from the signed-in freelancer's completed transactions. The 2027 SARS brackets and rebate are linked in the README. Unit tests cover the thresholds and rounding |
+| Automated integration, builds and failure gates | [Part 3 workflow](../../.github/workflows/part3-ci.yml) runs Node tests, Newman, Vitest, the React production build, both image builds, audits, Compose smoke and Playwright. The Playwright test uses the built React site and real Express/Mongo services |
+| Static analysis and Docker | See the [Semgrep report](../evidence/part3-static-analysis.md), both Dockerfiles and [Compose configuration](../docker-compose.yml). Hosted deployment is optional |
+| Logging | Container evidence includes structured server events. Optional HTTPS cloud export is implemented and tested. The group must capture real provider receipt to evidence the highest logging band |
+| Own security features | The README identifies atomic account lockout and persistent JWT revocation. The baseline security controls are documented separately in the threat review |
+| Sources and declaration | Review the [sources and AI-use declaration](SOURCES-AND-AI-DECLARATION.md). Each member should add any external code or AI assistance they used and complete the institution's declaration if it has a required format |
+
+## Browser integration test
+
+Start the isolated Compose stack as described in the root README. From the `HustleHub` directory:
+
+```sh
+npm --prefix client ci
+cd client
+npx playwright install chromium
+npm run test:e2e
+```
+
+Use a disposable local Compose database. The test creates synthetic client and freelancer accounts, creates and books a gig, checks access boundaries and matches the booking to the freelancer's transaction. It checks the nonzero tax estimate and chart when run within the configured tax year. The Playwright report includes booking and dashboard screenshots. CI removes its temporary Compose volume after testing.
+
+## Evidence to attach before submitting
+
+1. From the latest successful [Part 3 run on main](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions?query=branch%3Amain), capture the two passing jobs and the Compose/Playwright steps. Download the `browser-integration-evidence`, `container-runtime-evidence` and `semgrep-static-analysis` artifacts. Keep a copy for submission because GitHub artifacts expire.
+2. Capture the Semgrep summary showing the scan scope and findings. Explain the local rules and their limits using the analysis report.
+3. Capture login, booking, transaction and error events with demo data. For the highest band, show receipt in the group's cloud log source using the README setup. Keep credentials, private keys, tokens and personal data out of all evidence.
+4. Record the full authentication → gig → booking → transaction → dashboard flow. Add the viewable video link to the root README and the assessment submission. See the [demo guide](PART3-DEMO-GUIDE.md).
+5. Confirm the submission repository against the official Classroom50 invitation. The current remote is `Christopher-Doyle/HustleHub-INSY7314`. GitHub's [Autograde annotation](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42373522015) says it cannot find the course's reusable runner. Ask the course owner to confirm the assignment remote and runner access. If using a service fork, push the complete history and link that fork in the README.
+6. Review the 75+ meaningful-commit target against the genuine group history, and include the actual contributor record. Confirm any earlier lecturer feedback is addressed.

@@ -36,6 +36,8 @@ The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 
 
 See `docs/PART3-IMPLEMENTATION-CHECKLIST.md`, `docs/PART3-DEMO-GUIDE.md` and `evidence/part3-static-analysis.md`.
 
+The [lecturer's submission checklist](docs/PART3-SUBMISSION.md) includes Playwright instructions and the evidence handoff. See [sources and AI-use declaration](docs/SOURCES-AND-AI-DECLARATION.md) for research, attribution and disclosure.
+
 The [verified Part 3 workflow](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42372224995) passed the application regressions, production audits, Docker Compose startup, the HTTPS smoke flow and Semgrep. Its container logs and static-analysis JSON are linked from the implementation checklist.
 
 A secure MERN freelance marketplace using MongoDB, Express, React and Node.js.
