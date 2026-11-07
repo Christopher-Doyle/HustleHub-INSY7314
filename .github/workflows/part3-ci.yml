@@ -24,13 +24,29 @@ jobs:
         working-directory: HustleHub/client
       - run: npm audit --omit=dev --audit-level=high
         working-directory: HustleHub/client
+      - run: docker compose config --quiet
+        working-directory: HustleHub
       - run: docker compose build
         working-directory: HustleHub
-  codeql:
+      - run: docker compose up -d --wait
+        working-directory: HustleHub
+      - run: node scripts/docker-smoke.cjs
+        working-directory: HustleHub
+      - if: always()
+        run: docker compose logs --no-color > container-runtime.log
+        working-directory: HustleHub
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: container-runtime-evidence, path: HustleHub/container-runtime.log, if-no-files-found: error }
+      - if: always()
+        run: docker compose down -v
+        working-directory: HustleHub
+  static-analysis:
     runs-on: ubuntu-latest
-    permissions: { contents: read, security-events: write }
     steps:
       - uses: actions/checkout@v4
-      - uses: github/codeql-action/init@v4
-        with: { languages: javascript-typescript }
-      - uses: github/codeql-action/analyze@v4
+      - run: pipx install semgrep
+      - run: mkdir -p HustleHub/evidence/ci && semgrep scan --config .semgrep.yml --error --json-output=HustleHub/evidence/ci/semgrep.json HustleHub/src HustleHub/client/src
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: semgrep-static-analysis, path: HustleHub/evidence/ci/semgrep.json, if-no-files-found: error }

@@ -14,6 +14,7 @@ services:
     environment:
       HOST: 0.0.0.0
       MONGODB_URI: mongodb://mongo:27017/hustlehub
+      CLIENT_ORIGINS: https://localhost:5173
     ports: ["4000:4000"]
     volumes: ["./certs:/app/certs:ro"]
     depends_on: { mongo: { condition: service_healthy } }
@@ -22,10 +23,11 @@ services:
     security_opt: ["no-new-privileges:true"]
   client:
     build: ./client
-    ports: ["5173:8080"]
+    ports: ["5173:8443"]
+    volumes: ["./certs:/etc/nginx/certs:ro"]
     depends_on: { api: { condition: service_healthy } }
     read_only: true
-    tmpfs: ["/var/cache/nginx", "/var/run"]
+    tmpfs: ["/var/cache/nginx", "/var/run", "/tmp"]
     security_opt: ["no-new-privileges:true"]
 
 volumes:

@@ -1,0 +1,29 @@
+rules:
+  - id: javascript-eval
+    message: Dynamic code execution is prohibited in application source.
+    severity: ERROR
+    languages: [javascript]
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: child-process-shell
+    message: Shell-enabled child processes can permit command injection.
+    severity: ERROR
+    languages: [javascript]
+    patterns:
+      - pattern: '$F(..., { ..., shell: true, ... })'
+      - metavariable-regex:
+          metavariable: $F
+          regex: ^(exec|execSync|spawn|spawnSync)$
+  - id: react-dangerous-html
+    message: dangerouslySetInnerHTML requires a documented sanitisation boundary.
+    severity: ERROR
+    languages: [javascript]
+    pattern: <$X dangerouslySetInnerHTML={...} ... />
+  - id: hardcoded-jwt-secret
+    message: JWT secrets must come from protected runtime configuration.
+    severity: ERROR
+    languages: [javascript]
+    patterns:
+      - pattern: jwt.sign($DATA, "...")
+      - pattern-not: jwt.sign($DATA, $CONFIG, ...)

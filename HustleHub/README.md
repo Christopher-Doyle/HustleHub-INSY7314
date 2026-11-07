@@ -4,21 +4,21 @@
 
 ## Part 3 financial insights
 
-Freelancers use **Income** to view gross platform earnings, completed transactions, estimated tax, estimated after-tax income and monthly earnings. `GET /api/income/me/insights` derives values only from the authenticated freelancer's completed transactions and accepts no client-supplied freelancer ID.
+Freelancers use **Income** to view lifetime platform earnings separately from 2027 tax-year earnings, year-to-date earnings, estimated tax, estimated after-tax income and monthly tax-year earnings. `GET /api/income/me/insights` derives values only from the authenticated freelancer's completed transactions and accepts no client-supplied freelancer ID.
 
-The estimator uses the SARS 2027 year of assessment (1 March 2026-28 February 2027) progressive individual rates and R17,820 primary rebate. Calculation uses integer cents. It assumes a person under 65 and treats HustleHub+ income as annual taxable income; it excludes other income, deductions, provisional payments and individual circumstances. It is educational guidance, not tax advice or an official assessment. [SARS rates source](https://www.sars.gov.za/tax-rates/income-tax/rates-of-tax-for-individuals/).
+The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 28 February 2027 23:59:59.999 UTC. It does not annualise an incomplete year: recorded tax-year platform earnings are the explicitly displayed estimated annual taxable-income basis. It uses the SARS 2027 progressive rates and R17,820 primary rebate with integer-cent calculations. It assumes a person under 65 and excludes other income, deductions, provisional payments and individual circumstances. It is educational guidance, not tax advice or an official assessment. [SARS rates source](https://www.sars.gov.za/tax-rates/income-tax/rates-of-tax-for-individuals/).
 
 ## Part 3 operations and monitoring
 
-- `docker compose up --build` builds non-root API and React containers with read-only filesystems and `no-new-privileges`.
-- `.github/workflows/part3-ci.yml` performs locked installs, backend/frontend tests, React build, production audit gates, Docker builds and CodeQL.
+- `docker compose up --build --wait` runs MongoDB, the non-root API, and an HTTPS Nginx frontend/reverse proxy with read-only application filesystems and `no-new-privileges`. Browser `/api` traffic remains same-origin and Nginx verifies the API certificate.
+- `.github/workflows/part3-ci.yml` performs locked installs, backend/frontend tests, React build, production audit gates, Compose validation, image builds, a disposable full-stack runtime smoke flow and blocking Semgrep OSS analysis. Evidence is uploaded as Actions artifacts.
 - JSON logs include timestamp, level, event, request ID, route, status, duration, actor ID and a one-way client fingerprint. Login, booking and financial routes receive explicit events. Request bodies, passwords, tokens, cookies and authorization headers are not logged.
-- Cloud delivery is not falsely claimed. JSON stdout is platform-ready, but no remote provider has been verified.
+- Optional HTTPS cloud delivery uses `LOG_EXPORT_URL`, `LOG_EXPORT_TOKEN` and `LOG_EXPORT_TIMEOUT_MS`. The JSON/Bearer format is compatible with Better Stack's free-tier HTTP log source (use its assigned HTTPS ingest URL and source token) and similar managed endpoints. Export has bounded exponential retries and is failure-isolated. No provider receipt is claimed until a team-supplied endpoint/token is tested.
 
 ## New Part 3 security controls
 
-1. **Account lockout:** five failed passwords lock an account for 15 minutes; a successful login resets the counters.
-2. **JWT revocation:** tokens include a unique `jti`; `POST /api/auth/logout` revokes it until expiry. The registry is process-local, so scaled deployment needs Redis/persistent storage.
+1. **Account lockout:** atomic MongoDB update pipelines count concurrent failures; five failed passwords lock an account for 15 minutes, and a successful login after expiry resets counters. IP rate limiting remains an independent control.
+2. **JWT revocation:** tokens include a unique `jti`; `POST /api/auth/logout` stores only its SHA-256 digest in MongoDB until expiry. A TTL index cleans records, and every API instance checks the shared collection fail-closed.
 3. **Container hardening:** production-only API dependencies, non-root execution, health checks, read-only filesystems and `no-new-privileges` reduce attack surface.
 
 ## Final security review
@@ -27,11 +27,11 @@ The estimator uses the SARS 2027 year of assessment (1 March 2026-28 February 20
 |---|---|---|
 | Injection | Strict field/type allowlists, server-owned IDs, no raw query objects | API/Gig tests; update validation for new fields |
 | XSS | React escaping, CSP and validation | Frontend tests/prior ZAP; retest deployed CSP |
-| Authentication | bcrypt, generic errors, rate limits, short JWT expiry, lockout, revocation | Revocation/lockout need shared state when scaled |
+| Authentication | bcrypt, generic invalid-credential errors, IP rate limits, short JWT expiry, atomic lockout, persistent hashed revocation | Lockout can still be abused against a known account; the 15-minute window limits impact |
 | Broken access control | JWT, RBAC, ownership and financial isolation | Backend RBAC tests; admins remain privileged |
 | Misconfiguration | HTTPS, Helmet/CSP, CORS, validated env, ignored secrets, hardened Docker | Local certificate is development-only |
-| Dependencies | Lockfiles, production audit gates and CodeQL | Newman dev tree reported separately |
-| Monitoring | Structured events, correlation, redaction | Remote cloud transport not verified |
+| Dependencies | Lockfiles, production audit gates and blocking Semgrep OSS | Newman dev tree reported separately |
+| Monitoring | Business-layer events, correlation, redaction, bounded HTTPS exporter | Cloud provider receipt requires a configured external endpoint |
 | Sensitive data | Excluded hashes, ignored secrets/keys, log redaction | Deployment must provide secret storage |
 
 See `docs/PART3-IMPLEMENTATION-CHECKLIST.md`, `docs/PART3-DEMO-GUIDE.md` and `evidence/part3-static-analysis.md`.
@@ -160,6 +160,9 @@ Run setup to create `.env` with a random JWT secret, or copy `.env.example` and 
 | `MONGODB_URI` | MongoDB Atlas `mongodb+srv://` or local MongoDB URI |
 | `MONGODB_DNS_SERVERS` | Optional comma-separated DNS resolver IPs for SRV environments |
 | `CLIENT_ORIGINS` | Exact comma-separated browser origins allowed by CORS |
+| `LOG_EXPORT_URL` | Optional HTTPS JSON ingestion endpoint for a cloud logging provider |
+| `LOG_EXPORT_TOKEN` | Optional cloud ingestion bearer token; never commit it |
+| `LOG_EXPORT_TIMEOUT_MS` | Export timeout in milliseconds; default `2000` |
 
 The frontend optionally supports `VITE_API_BASE_URL`; local development should leave it blank and use the Vite proxy.
 
