@@ -166,6 +166,17 @@ Run setup to create `.env` with a random JWT secret, or copy `.env.example` and 
 
 The frontend optionally supports `VITE_API_BASE_URL`; local development should leave it blank and use the Vite proxy.
 
+### Connect Better Stack cloud logging
+
+1. Create a free Better Stack **Logs** source and choose HTTP ingestion.
+2. Copy its assigned HTTPS ingest URL into local/deployment secret `LOG_EXPORT_URL`.
+3. Store the source token as secret `LOG_EXPORT_TOKEN`; never place either value in source control or screenshots.
+4. Keep `LOG_EXPORT_TIMEOUT_MS=2000` unless the provider requires a smaller limit.
+5. Restart the API, perform a disposable login and booking, then verify `authentication_succeeded`, `booking_created`, `transaction_created` and request/error events in Live Tail.
+6. Confirm the received records contain request IDs but no passwords, JWTs, authorization headers, email addresses or names.
+
+Console JSON remains available when no exporter is configured. Export requests have a fixed timeout and two bounded exponential retries; events are not buffered in an unbounded in-memory queue, and exporter failure never fails marketplace operations.
+
 ## HTTPS setup
 
 From the project folder:

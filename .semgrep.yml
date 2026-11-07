@@ -27,3 +27,34 @@ rules:
     patterns:
       - pattern: jwt.sign($DATA, "...")
       - pattern-not: jwt.sign($DATA, $CONFIG, ...)
+  - id: weak-password-hash
+    message: SHA-1 and MD5 are prohibited for password or security hashing.
+    severity: ERROR
+    languages: [javascript]
+    pattern-either:
+      - pattern: crypto.createHash('md5')
+      - pattern: crypto.createHash('sha1')
+  - id: jwt-none-algorithm
+    message: JWT verification must never permit the none algorithm.
+    severity: ERROR
+    languages: [javascript]
+    pattern-either:
+      - pattern: "jwt.verify($TOKEN, $KEY, { ..., algorithms: [..., 'none', ...], ... })"
+      - pattern: "jwt.sign($DATA, $KEY, { ..., algorithm: 'none', ... })"
+  - id: credentialed-wildcard-cors
+    message: Credentialed CORS must not use a wildcard origin.
+    severity: ERROR
+    languages: [javascript]
+    pattern: "cors({ ..., origin: '*', ..., credentials: true, ... })"
+  - id: mongodb-where-operator
+    message: Server-side JavaScript in MongoDB queries creates injection risk.
+    severity: ERROR
+    languages: [javascript]
+    pattern: "{ ..., $where: $CODE, ... }"
+  - id: disabled-tls-verification
+    message: Application source must not disable TLS certificate verification.
+    severity: ERROR
+    languages: [javascript]
+    pattern-either:
+      - pattern: "process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'"
+      - pattern: "{ ..., rejectUnauthorized: false, ... }"
