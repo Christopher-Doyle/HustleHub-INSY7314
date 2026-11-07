@@ -1,4 +1,4 @@
-// Generates a deterministic, foldered Part 2 collection. The companion
+// Generates a deterministic, foldered final POE collection. The companion
 // runner supplies isolated HTTPS servers and an in-memory MongoDB database.
 const fs = require('node:fs');
 const path = require('node:path');
@@ -111,6 +111,7 @@ add('04', 'Unrelated freelancer booking isolation', 'GET', '/api/bookings/freela
 add('05', 'Owner sees linked transaction', 'GET', '/api/transactions/me', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Correct linked transaction', () => { const t = pm.response.json().data.transactions.find(x => x.bookingId === pm.collectionVariables.get('bookingId')); pm.expect(t.amount).to.eql(Number(pm.collectionVariables.get('gigPrice'))); });"] });
 add('05', 'Unrelated freelancer transaction isolation', 'GET', '/api/transactions/me', 200, undefined, { token: '{{otherFreelancerToken}}', tests: ["pm.test('No unrelated transactions', () => pm.expect(pm.response.json().data.transactions).to.eql([]));"] });
 add('05', 'Owner income total', 'GET', '/api/income/me', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Correct income', () => pm.expect(pm.response.json().data.totalIncome).to.eql(Number(pm.collectionVariables.get('gigPrice'))));"] });
+add('05', 'Owner tax-year financial insights', 'GET', '/api/income/me/insights', 200, undefined, { token: '{{freelancerToken}}', tests: ["pm.test('Tax-year earnings and estimate', () => { const data = pm.response.json().data; pm.expect(data.taxYear).to.eql('2027'); pm.expect(data.taxYearEarnings).to.eql(Number(pm.collectionVariables.get('gigPrice'))); pm.expect(data.disclaimer).to.match(/not tax advice/i); });"] });
 add('05', 'Unrelated freelancer has zero income', 'GET', '/api/income/me', 200, undefined, { token: '{{otherFreelancerToken}}', tests: ["pm.test('Zero unrelated income', () => pm.expect(pm.response.json().data.totalIncome).to.eql(0));"] });
 add('05', 'Client cannot access income', 'GET', '/api/income/me', 403, undefined, { token: '{{clientToken}}' });
 
@@ -121,10 +122,12 @@ add('06', 'Unknown endpoint returns 404', 'GET', '/api/does-not-exist', 404);
 add('06', 'Rate limit request one', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', baseUrlVar: 'rateLimitBaseUrl' });
 add('06', 'Rate limit request two', 'POST', '/api/bookings', 201, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', baseUrlVar: 'rateLimitBaseUrl' });
 add('06', 'Rate limit request three blocked', 'POST', '/api/bookings', 429, { gigId: '{{gigId}}' }, { token: '{{clientToken}}', baseUrlVar: 'rateLimitBaseUrl', tests: ["pm.test('Retry-After present', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);", "pm.test('Safe limiter code', () => pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED'));"] });
+add('06', 'Logout revokes freelancer token', 'POST', '/api/auth/logout', 200, undefined, { token: '{{freelancerToken}}' });
+add('06', 'Revoked token rejected', 'GET', '/api/auth/me', 401, undefined, { token: '{{freelancerToken}}' });
 
 const collection = {
   info: {
-    name: 'HustleHub+ | Part 2 Full Regression',
+    name: 'HustleHub+ | Final POE Full Regression',
     schema: 'https://schema.getpostman.com/json/collection/v2.1.0/collection.json',
     description: 'Run with npm run test:postman. The automated runner uses HTTPS and mongodb-memory-server, then destroys all disposable data in a guaranteed finalization path.'
   },

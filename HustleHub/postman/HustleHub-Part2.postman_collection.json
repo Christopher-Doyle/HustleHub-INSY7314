@@ -1,6 +1,6 @@
 {
   "info": {
-    "name": "HustleHub+ | Part 2 Full Regression",
+    "name": "HustleHub+ | Final POE Full Regression",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "description": "Run with npm run test:postman. The automated runner uses HTTPS and mongodb-memory-server, then destroys all disposable data in a guaranteed finalization path."
   },
@@ -1804,6 +1804,40 @@
           ]
         },
         {
+          "name": "Owner tax-year financial insights",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/income/me/insights",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
+                  "pm.test('Tax-year earnings and estimate', () => { const data = pm.response.json().data; pm.expect(data.taxYear).to.eql('2027'); pm.expect(data.taxYearEarnings).to.eql(Number(pm.collectionVariables.get('gigPrice'))); pm.expect(data.disclaimer).to.match(/not tax advice/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Unrelated freelancer has zero income",
           "request": {
             "method": "GET",
@@ -2134,6 +2168,72 @@
                   "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });",
                   "pm.test('Retry-After present', () => pm.expect(pm.response.headers.has('Retry-After')).to.be.true);",
                   "pm.test('Safe limiter code', () => pm.expect(pm.response.json().error.code).to.eql('RATE_LIMITED'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout revokes freelancer token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/logout",
+            "description": "Expected status: 200.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', () => pm.response.to.have.status(200));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(true));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Revoked token rejected",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/me",
+            "description": "Expected status: 401.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{freelancerToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', () => pm.response.to.have.status(401));",
+                  "pm.test('JSON response', () => pm.response.to.be.json);",
+                  "pm.test('Consistent response', () => pm.expect(pm.response.json().success).to.eql(false));",
+                  "pm.test('No credential or stack leakage', () => { const text = pm.response.text(); pm.expect(text).not.to.match(/passwordHash|mongodb\\+srv|BEGIN PRIVATE KEY|\\\"stack\\\"/i); });"
                 ]
               }
             }

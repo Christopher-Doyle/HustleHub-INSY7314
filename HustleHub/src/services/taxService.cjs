@@ -8,6 +8,8 @@ const TAX_YEAR = Object.freeze({
   ],
   lowerBounds: [0, 24_510_000, 38_310_000, 53_020_000, 69_580_000, 88_700_000, 187_860_000]
 });
+const TAX_YEAR_START = new Date('2026-03-01T00:00:00.000Z');
+const TAX_YEAR_END_EXCLUSIVE = new Date('2027-03-01T00:00:00.000Z');
 
 function estimateAnnualTax(incomeRand) {
   if (!Number.isFinite(incomeRand) || incomeRand < 0) throw new TypeError('Income must be a non-negative finite number.');
@@ -26,4 +28,4 @@ function estimateAnnualTax(incomeRand) {
     disclaimer: 'Estimate assumes platform income is annual taxable income for a person under 65 and applies only the primary rebate. It is not tax advice or an official SARS assessment.'
   });
 }
-module.exports = { estimateAnnualTax, TAX_YEAR };
+module.exports = { estimateAnnualTax, TAX_YEAR, TAX_YEAR_START, TAX_YEAR_END_EXCLUSIVE };
