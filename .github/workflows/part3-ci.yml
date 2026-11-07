@@ -28,6 +28,9 @@ jobs:
         working-directory: HustleHub/client
       - run: npm audit --omit=dev --audit-level=high
         working-directory: HustleHub/client
+      - name: Install Chromium for browser integration tests
+        run: npx playwright install --with-deps chromium
+        working-directory: HustleHub/client
       - run: docker compose config --quiet
         working-directory: HustleHub
       - run: docker compose build
@@ -50,6 +53,13 @@ jobs:
           done
       - run: node scripts/docker-smoke.cjs
         working-directory: HustleHub
+      - name: Run Playwright against the containerised app
+        id: browser
+        run: npm run test:e2e
+        working-directory: HustleHub/client
+      - if: always() && steps.browser.outcome != 'skipped' && steps.browser.outcome != ''
+        uses: actions/upload-artifact@v4
+        with: { name: browser-integration-evidence, path: HustleHub/client/playwright-report, if-no-files-found: error }
       - if: always()
         run: |
           docker compose ps -a > container-runtime.log
