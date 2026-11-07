@@ -36,6 +36,8 @@ The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 
 
 See `docs/PART3-IMPLEMENTATION-CHECKLIST.md`, `docs/PART3-DEMO-GUIDE.md` and `evidence/part3-static-analysis.md`.
 
+The [verified Part 3 workflow](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42372224995) passed the application regressions, production audits, Docker Compose startup, the HTTPS smoke flow and Semgrep. Its container logs and static-analysis JSON are linked from the implementation checklist.
+
 A secure MERN freelance marketplace using MongoDB, Express, React and Node.js.
 
 HustleHub+ is a secure freelance marketplace where freelancers publish Gigs and clients book them. A confirmed booking automatically creates a transaction, and freelancers can review related bookings, transaction history and income. The integrated Part 2 submission includes a React frontend, Express HTTPS API, MongoDB persistence, JWT authentication, role-based access control, automated tests, Postman/Newman regression testing and a reproducible OWASP ZAP workflow.

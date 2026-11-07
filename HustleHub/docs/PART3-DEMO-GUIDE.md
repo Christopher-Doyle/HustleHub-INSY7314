@@ -9,7 +9,7 @@ Suggested duration: 8-12 minutes. Use disposable users; never show `.env`, Atlas
 5. Show structured login, booking and financial JSON logs with request IDs and no credentials.
 6. Demonstrate five failed passwords causing lockout on a disposable account.
 7. Log in, call logout, show the hashed MongoDB revocation record (never the JWT), then show reuse returns 401 from a second/restarted API instance.
-8. Show the successful GitHub Actions verify and Semgrep jobs plus both uploaded artifacts, then explain Docker hardening and test/audit evidence.
+8. Open [passing run 42372224995](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42372224995). Show the in-container IPv4 HTTPS 200, the Docker smoke pass, the Semgrep job and both evidence artifacts. Explain Docker hardening and the test and audit results.
 
 For cloud logging, create a disposable Better Stack HTTP source, configure the three documented `LOG_EXPORT_*` secrets outside Git, generate login/booking activity, and show sanitised events in Live Tail. Do not expose the ingest URL or token.
 
