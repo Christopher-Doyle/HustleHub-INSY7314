@@ -14,6 +14,10 @@ jobs:
         working-directory: HustleHub
       - run: npm test
         working-directory: HustleHub
+      - run: npm run openapi:validate
+        working-directory: HustleHub
+      - run: npm run test:postman
+        working-directory: HustleHub
       - run: npm audit --omit=dev --audit-level=high
         working-directory: HustleHub
       - run: npm ci
