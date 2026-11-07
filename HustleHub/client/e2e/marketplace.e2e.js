@@ -25,7 +25,7 @@ test('a client booking appears in the freelancer transaction and tax dashboard',
   await page.getByRole('link', { name: 'My gigs' }).click();
   await page.getByRole('link', { name: 'Create gig', exact: true }).click();
   await page.getByLabel('Title').fill(title);
-  await page.getByLabel('Category').selectOption('Technology');
+  await page.getByLabel('Category').selectOption('Development');
   await page.getByLabel('Price (ZAR)').fill('245100');
   await page.getByLabel('Description').fill('A simulated technology service for the browser integration test.');
   await page.getByRole('button', { name: 'Create gig' }).click();

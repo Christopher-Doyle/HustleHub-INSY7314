@@ -8,6 +8,7 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
     baseURL: 'https://localhost:5173',
+    actionTimeout: 10_000,
     // The isolated Compose stack uses a locally generated development certificate.
     ignoreHTTPSErrors: true,
     viewport: { width: 1280, height: 960 }
