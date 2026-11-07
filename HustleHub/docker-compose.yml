@@ -1,0 +1,32 @@
+services:
+  mongo:
+    image: mongo:8.0
+    volumes: ["mongo-data:/data/db"]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt: ["no-new-privileges:true"]
+  api:
+    build: .
+    env_file: .env
+    environment:
+      HOST: 0.0.0.0
+      MONGODB_URI: mongodb://mongo:27017/hustlehub
+    ports: ["4000:4000"]
+    volumes: ["./certs:/app/certs:ro"]
+    depends_on: { mongo: { condition: service_healthy } }
+    read_only: true
+    tmpfs: ["/tmp"]
+    security_opt: ["no-new-privileges:true"]
+  client:
+    build: ./client
+    ports: ["5173:8080"]
+    depends_on: { api: { condition: service_healthy } }
+    read_only: true
+    tmpfs: ["/var/cache/nginx", "/var/run"]
+    security_opt: ["no-new-privileges:true"]
+
+volumes:
+  mongo-data:

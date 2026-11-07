@@ -1,4 +1,40 @@
-# HustleHub+ — INSY7314 Part 2
+# HustleHub+ — INSY7314 Final POE
+
+> **Final POE / Part 3:** This branch adds a SARS-based financial dashboard, structured security logging, account lockout, JWT logout revocation, Docker orchestration and automated DevSecOps verification.
+
+## Part 3 financial insights
+
+Freelancers use **Income** to view gross platform earnings, completed transactions, estimated tax, estimated after-tax income and monthly earnings. `GET /api/income/me/insights` derives values only from the authenticated freelancer's completed transactions and accepts no client-supplied freelancer ID.
+
+The estimator uses the SARS 2027 year of assessment (1 March 2026-28 February 2027) progressive individual rates and R17,820 primary rebate. Calculation uses integer cents. It assumes a person under 65 and treats HustleHub+ income as annual taxable income; it excludes other income, deductions, provisional payments and individual circumstances. It is educational guidance, not tax advice or an official assessment. [SARS rates source](https://www.sars.gov.za/tax-rates/income-tax/rates-of-tax-for-individuals/).
+
+## Part 3 operations and monitoring
+
+- `docker compose up --build` builds non-root API and React containers with read-only filesystems and `no-new-privileges`.
+- `.github/workflows/part3-ci.yml` performs locked installs, backend/frontend tests, React build, production audit gates, Docker builds and CodeQL.
+- JSON logs include timestamp, level, event, request ID, route, status, duration, actor ID and a one-way client fingerprint. Login, booking and financial routes receive explicit events. Request bodies, passwords, tokens, cookies and authorization headers are not logged.
+- Cloud delivery is not falsely claimed. JSON stdout is platform-ready, but no remote provider has been verified.
+
+## New Part 3 security controls
+
+1. **Account lockout:** five failed passwords lock an account for 15 minutes; a successful login resets the counters.
+2. **JWT revocation:** tokens include a unique `jti`; `POST /api/auth/logout` revokes it until expiry. The registry is process-local, so scaled deployment needs Redis/persistent storage.
+3. **Container hardening:** production-only API dependencies, non-root execution, health checks, read-only filesystems and `no-new-privileges` reduce attack surface.
+
+## Final security review
+
+| Threat | Implemented protection | Evidence / residual limitation |
+|---|---|---|
+| Injection | Strict field/type allowlists, server-owned IDs, no raw query objects | API/Gig tests; update validation for new fields |
+| XSS | React escaping, CSP and validation | Frontend tests/prior ZAP; retest deployed CSP |
+| Authentication | bcrypt, generic errors, rate limits, short JWT expiry, lockout, revocation | Revocation/lockout need shared state when scaled |
+| Broken access control | JWT, RBAC, ownership and financial isolation | Backend RBAC tests; admins remain privileged |
+| Misconfiguration | HTTPS, Helmet/CSP, CORS, validated env, ignored secrets, hardened Docker | Local certificate is development-only |
+| Dependencies | Lockfiles, production audit gates and CodeQL | Newman dev tree reported separately |
+| Monitoring | Structured events, correlation, redaction | Remote cloud transport not verified |
+| Sensitive data | Excluded hashes, ignored secrets/keys, log redaction | Deployment must provide secret storage |
+
+See `docs/PART3-IMPLEMENTATION-CHECKLIST.md`, `docs/PART3-DEMO-GUIDE.md` and `evidence/part3-static-analysis.md`.
 
 A secure MERN freelance marketplace using MongoDB, Express, React and Node.js.
 
@@ -209,11 +245,13 @@ Data persists in the configured MongoDB database and survives API restarts.
 | `GET /api/bookings/freelancer` | Freelancer | Related bookings |
 | `GET /api/transactions/me` | Freelancer | Own transactions |
 | `GET /api/income/me` | Freelancer | Own income summary |
+| `GET /api/income/me/insights` | Freelancer | Own earnings, monthly summary and estimated tax |
+| `POST /api/auth/logout` | Authenticated | Revoke the current JWT |
 | `GET /api/admin/overview` | Admin | Safe platform totals |
 
 The validated OpenAPI 3.0.3 definition is in `docs/openapi.yaml`.
 
-It documents 13 paths and 16 declared HTTP operations, including the Bearer JWT scheme. ZAP reports 20 imported operations/URLs; its importer count differs from the explicitly declared HTTP-method count. Validate with `npm.cmd run openapi:validate`.
+It documents the API operations, including the Bearer JWT scheme, token revocation and financial insights. Validate with `npm.cmd run openapi:validate`.
 
 ## Automated tests
 

@@ -1,0 +1,36 @@
+name: Part 3 DevSecOps
+on: { push: { branches: [main, 'feat/**'] }, pull_request: { branches: [main] } }
+permissions: { contents: read, security-events: write }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: "HustleHub/**/package-lock.json" }
+      - run: npm ci
+        working-directory: HustleHub
+      - run: npm run setup
+        working-directory: HustleHub
+      - run: npm test
+        working-directory: HustleHub
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: HustleHub
+      - run: npm ci
+        working-directory: HustleHub/client
+      - run: npm test
+        working-directory: HustleHub/client
+      - run: npm run build
+        working-directory: HustleHub/client
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: HustleHub/client
+      - run: docker compose build
+        working-directory: HustleHub
+  codeql:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v4
+        with: { languages: javascript-typescript }
+      - uses: github/codeql-action/analyze@v4
