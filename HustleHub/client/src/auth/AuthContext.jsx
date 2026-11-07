@@ -42,8 +42,14 @@ export function AuthProvider({ children }) {
     async register(fields) {
       return (await apiClient.post('/api/auth/register', fields)).user;
     },
-    logout() {
-      clearSession();
+    async logout() {
+      try {
+        if (getSession().token) await apiClient.post('/api/auth/logout');
+      } catch {
+        // Local logout must remain available during a network outage.
+      } finally {
+        clearSession();
+      }
     }
   }), [user, token, loading]);
 

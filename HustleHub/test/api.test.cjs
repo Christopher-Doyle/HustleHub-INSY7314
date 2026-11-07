@@ -12,6 +12,8 @@ const { createApp } = require('../src/app.cjs');
 const { loadConfig } = require('../src/config.cjs');
 const { connectDatabase, disconnectDatabase } = require('../src/database.cjs');
 const { User } = require('../src/models/user.cjs');
+const { RevokedToken } = require('../src/models/revokedToken.cjs');
+const { hashJti } = require('../src/services/tokenRevocation.cjs');
 const { requireRole } = require('../src/middleware/requireRole.cjs');
 const { errorHandler } = require('../src/middleware/errorHandler.cjs');
 const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
@@ -113,6 +115,17 @@ test('logout revokes the current JWT while a separately issued token remains val
   assert.equal((await request('POST', '/api/auth/logout', undefined, { authorization: `Bearer ${revokedToken}` })).status, 200);
   assert.equal((await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${revokedToken}` })).status, 401);
   assert.equal((await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${activeToken}` })).status, 200);
+  const claims = jwt.decode(revokedToken);
+  const stored = await RevokedToken.findOne({}).select('+jtiHash');
+  assert.equal(stored.jtiHash, hashJti(claims.jti));
+  assert.ok(!JSON.stringify(stored.toObject()).includes(revokedToken));
+
+  const secondInstance = https.createServer({ key, cert, minVersion: 'TLSv1.2' }, await createApp(config, { User, rateLimitMax: 200 }));
+  await new Promise(resolve => secondInstance.listen(0, '127.0.0.1', resolve));
+  try {
+    const restarted = await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${revokedToken}` }, secondInstance.address().port);
+    assert.equal(restarted.status, 401);
+  } finally { await new Promise(resolve => secondInstance.close(resolve)); }
 });
 test('five failed passwords lock an account and block the correct password', async () => {
   const lockEmail = 'lockout@example.com';
@@ -122,8 +135,20 @@ test('five failed passwords lock an account and block the correct password', asy
     assert.equal(response.status, 401);
   }
   const locked = await request('POST', '/api/auth/login', { email: lockEmail, password: credentials.password });
-  assert.equal(locked.status, 423);
-  assert.equal(locked.body.error.code, 'ACCOUNT_LOCKED');
+  assert.equal(locked.status, 401);
+  assert.equal(locked.body.error.code, 'INVALID_CREDENTIALS');
+});
+test('concurrent failures are counted atomically and an expired lock recovers safely', async () => {
+  const email = 'concurrent-lockout@example.com';
+  await request('POST', '/api/auth/register', { ...credentials, email });
+  await Promise.all(Array.from({ length: 5 }, () => request('POST', '/api/auth/login', { email, password: randomBytes(24).toString('hex') })));
+  assert.equal((await request('POST', '/api/auth/login', { email, password: credentials.password })).status, 401);
+  await User.updateOne({ email }, { $set: { lockedUntil: new Date(Date.now() - 1000) } });
+  const recovered = await request('POST', '/api/auth/login', { email, password: credentials.password });
+  assert.equal(recovered.status, 200);
+  const stored = await User.findOne({ email }).select('+failedLoginAttempts +lockedUntil');
+  assert.equal(stored.failedLoginAttempts, 0);
+  assert.equal(stored.lockedUntil, null);
 });
 test('unknown accounts and wrong passwords have identical safe 401 errors', async () => {
   const wrongPassword = randomBytes(24).toString('hex');
