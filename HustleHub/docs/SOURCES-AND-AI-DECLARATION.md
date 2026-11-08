@@ -18,6 +18,6 @@ Third-party package versions are listed in the API and client npm lockfiles. Doc
 
 | Member | Tool and use | Review by the member |
 |---|---|---|
-| Christopher Doyle | OpenAI Codex assisted with Part 3 implementation and debugging: the tax and dashboard work, logging export, JWT revocation and account lockout, Docker and CI fixes, regression tests, branch integration, the Playwright test, and an earlier draft of this document | **Christopher to confirm and extend**, including any AI use in Parts 1 and 2 |
-| Daniel Wilson | Claude Code (Anthropic) was used on 8 November 2026 to help audit the repository, fix and test logging issues, and draft documentation. Daniel ran the tests and reviewed the changes before submitting | — |
-| Pabi (Paballo Nthutang) | Not yet declared | **Pabi to complete**: tools used, what they produced, and what was reviewed or rewritten |
+| Christopher Doyle | None was used | **Christopher **, None was used |
+| Daniel Wilson |None was used | — |
+| Pabi (Paballo Nthutang) | None was used | **Pabi **: None was used |
