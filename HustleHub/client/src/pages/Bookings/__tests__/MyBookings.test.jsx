@@ -24,8 +24,9 @@ describe('MyBookings', () => {
     });
     render(<MemoryRouter><MyBookings /></MemoryRouter>);
 
-    expect(await screen.findByText('R450')).toBeInTheDocument();
-    expect(screen.getByText('R90')).toBeInTheDocument();
+    // Currency formatting (symbol/separator) is locale-dependent; only the digits are asserted.
+    expect(await screen.findByText(/450[,.]00/)).toBeInTheDocument();
+    expect(screen.getByText(/90[,.]00/)).toBeInTheDocument();
     expect(screen.getByText('confirmed')).toBeInTheDocument();
     expect(screen.getByText('cancelled')).toBeInTheDocument();
     expect(apiClient.get).toHaveBeenCalledWith('/api/bookings/me');

@@ -28,7 +28,8 @@ describe('BookGig', () => {
     await user.click(screen.getByRole('button', { name: /find gig/i }));
 
     expect(await screen.findByText('Responsive website')).toBeInTheDocument();
-    expect(screen.getByText('R450')).toBeInTheDocument();
+    // Currency formatting (symbol/separator) is locale-dependent; only the digits are asserted.
+    expect(screen.getByText(/450[,.]00/)).toBeInTheDocument();
     expect(apiClient.get).toHaveBeenCalledWith('/api/gigs/gig1');
   });
 
@@ -44,6 +45,7 @@ describe('BookGig', () => {
 
     expect(await screen.findByText(/booking confirmed/i)).toBeInTheDocument();
     expect(screen.getByText('confirmed')).toBeInTheDocument();
+    expect(screen.getByText(/450[,.]00/)).toBeInTheDocument();
     expect(apiClient.post).toHaveBeenCalledWith('/api/bookings', { gigId: 'gig1' });
   });
 

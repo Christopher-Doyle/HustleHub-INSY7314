@@ -19,6 +19,7 @@ export default function AdminOverview() {
   return (
     <section aria-labelledby="admin-title">
       <div className="page-header"><div><p className="eyebrow">System oversight</p><h1 id="admin-title">Admin overview</h1></div></div>
+      <p className="page-intro">Platform-wide totals across users, gigs, bookings and transactions.</p>
       {!overview && !error ? <LoadingState label="Loading platform totals…" /> : null}
       {error ? <ErrorState error={error} onRetry={load} /> : null}
       {overview ? <div className="stats-grid">{Object.entries(LABELS).map(([key, label]) => (
