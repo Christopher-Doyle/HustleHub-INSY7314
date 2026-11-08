@@ -11,7 +11,7 @@ Submit the complete Parts 1–3 application. The repository root README leads to
 | Logging | Container evidence includes structured server events with request IDs. Optional HTTPS cloud export is implemented and tested. See [cloud logging setup and evidence](CLOUD-LOGGING-EVIDENCE.md). Provider receipt in Better Stack was verified on 8 November 2026 with screenshots in the shared evidence document |
 | Own security features | The README identifies atomic account lockout and persistent JWT revocation. The baseline security controls are documented separately in the threat review |
 | Self-audit | [Rubric audit](RUBRIC-AUDIT.md) scores each category, lists the defects found and fixed, and states the remaining risks |
-| Sources and declaration | Review the [sources and AI-use declaration](SOURCES-AND-AI-DECLARATION.md). Each member should add any external code or AI assistance they used and complete the institution's declaration if it has a required format |
+| Sources and declaration | Review the [sources and AI-use declaration](SOURCES-AND-AI-DECLARATION.md). Each member that has added any external code  has a required format |
 
 ## Browser integration test
 
