@@ -12,11 +12,11 @@ Scores below are provisional self-assessments of how the evidence would read to 
 | CI/CD Pipeline | 20 | 15 | 17 | No delivery or deployment stage. Course Autograde unresolved |
 | Static Code Analysis | 10 | 7 | 8 | Custom nine-rule policy only. Zero findings gives little evidence of coverage |
 | Docker | 10 | 8 | 9 | Not re-run locally in this audit. Needs healthy-container screenshots |
-| Logging | 10 | 6 | 10 | No cloud receipt yet. This is the largest single gap |
+| Logging | 10 | 9 | 10 | Cloud receipt verified 8 Nov 2026. Screenshots must be sanitised and attached |
 | Additional Security Features | 15 | 13 | 14 | Evidence screenshots. Lockout can be used against a known account |
 | Security Review | 10 | 8 | 9 | Needs to be read alongside test and CI evidence |
 | README | 5 | 4 | 5 | Video link still to add |
-| **Total** | **100** | **78** | **85–91** | Depends mostly on cloud logging and screenshots |
+| **Total** | **100** | **81** | **85–91** | Depends mostly on cloud logging and screenshots |
 
 ## 1. Tax and Income Dashboard (20)
 
@@ -68,8 +68,9 @@ Scores below are provisional self-assessments of how the evidence would read to 
   2. `requestLogger` chose the event name from `req.path`, which is shortened inside mounted routers. In a local run only 7 of 9 login responses were tagged `authentication_attempt`, and the booking was logged as plain `http_request`. It now uses `req.originalUrl`.
   3. Exported records had no `dt` or `message`, so the provider would use arrival time and show no readable line. Exported copies now carry both, as Better Stack documents.
 - **Tests added:** correlation, no credentials in output, classification, exporter payload. Backend total is now 64.
-- **Remaining gap:** No provider has received an event. `docs/CLOUD-LOGGING-EVIDENCE.md` has the procedure and an empty evidence table. `npm run demo:log-events` generates the events.
-- **Risk:** High until Daniel completes the Better Stack run and captures sanitised screenshots.
+- **Cloud receipt:** On 8 November 2026 Better Stack Live tail received the events from the Docker Compose stack, including login, failed login, lockout, booking, transaction, validation error and revocation, and a search by one request ID returned the related records. `docs/CLOUD-LOGGING-EVIDENCE.md` holds the dated table.
+- **Remaining gap:** Export is best-effort, so events can be lost if the provider is unreachable. The screenshots must be attached and free of the token and ingesting host.
+- **Risk:** Low.
 
 ## 6. Additional Security Features (15)
 

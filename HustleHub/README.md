@@ -23,7 +23,7 @@ The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 
 - `docker compose up --build --wait` runs MongoDB, the non-root API, and an HTTPS Nginx frontend/reverse proxy with read-only application filesystems and `no-new-privileges`. Browser `/api` traffic remains same-origin and Nginx verifies the API certificate.
 - `.github/workflows/part3-ci.yml` performs locked installs, backend/frontend tests, React build, production audit gates, Compose validation, image builds, a disposable full-stack runtime smoke flow and blocking Semgrep OSS analysis. Evidence is uploaded as Actions artifacts.
 - JSON logs include timestamp, level, event, request ID, route, status, duration, actor ID and a one-way client fingerprint. Login, booking and financial routes receive explicit events, and service-layer events (`authentication_failed`, `account_locked`, `booking_created`, `transaction_created`, `token_revoked`) inherit the request ID of the HTTP request that caused them. Request bodies, passwords, tokens, cookies and authorization headers are not logged. The event catalogue is in [cloud logging setup and evidence](docs/CLOUD-LOGGING-EVIDENCE.md).
-- Optional HTTPS cloud delivery uses `LOG_EXPORT_URL`, `LOG_EXPORT_TOKEN` and `LOG_EXPORT_TIMEOUT_MS`. The JSON/Bearer format matches the [Better Stack HTTP ingestion API](https://betterstack.com/docs/logs/ingesting-data/http/logs/) (use its assigned HTTPS ingesting host and source token). Exported copies also carry `dt` (event time) and `message` (event name). Export has bounded exponential retries and is failure-isolated. **No provider receipt is claimed until the evidence table in the cloud logging document contains real, dated observations.**
+- Optional HTTPS cloud delivery uses `LOG_EXPORT_URL`, `LOG_EXPORT_TOKEN` and `LOG_EXPORT_TIMEOUT_MS`. The JSON/Bearer format matches the [Better Stack HTTP ingestion API](https://betterstack.com/docs/logs/ingesting-data/http/logs/) (use its assigned HTTPS ingesting host and source token). Exported copies also carry `dt` (event time) and `message` (event name). Export has bounded exponential retries and is failure-isolated. Provider receipt was observed on 8 November 2026; the dated evidence table is in the cloud logging document.
 
 ## New Part 3 security controls
 
@@ -41,7 +41,7 @@ The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 
 | Broken access control | JWT, database-reloaded roles, ownership filters, financial queries scoped to the token's user | Tests `another freelancer cannot update a gig they do not own`, `freelancer income and transaction history include only that freelancer…`, `RBAC distinguishes…`. Admins remain privileged |
 | Misconfiguration | HTTPS only, Helmet/CSP, exact-origin CORS, validated environment, ignored secrets, `no-store` | Tests `HTTPS certificate is verified; security headers…`, `plain HTTP is refused…`, `insecure JWT configuration fails closed`. Local certificate is development-only |
 | Vulnerable dependencies | Lockfiles, `npm ci`, `npm audit --omit=dev --audit-level=high` for API and client in CI | Both production audits report 0 vulnerabilities. The development-only Newman tree reports advisories and is not shipped |
-| Insufficient logging and monitoring | Business-layer events, request-ID correlation, redaction, bounded HTTPS exporter | Tests in `test/logging.test.cjs` and `service-level security events carry the request ID…`. Provider receipt is pending (see cloud logging evidence) |
+| Insufficient logging and monitoring | Business-layer events, request-ID correlation, redaction, bounded HTTPS exporter | Tests in `test/logging.test.cjs` and `service-level security events carry the request ID…`. Provider receipt verified 8 Nov 2026 (see cloud logging evidence) |
 | Sensitive data exposure | `passwordHash` excluded from queries, ignored secrets and keys, log key redaction, hashed token IDs in MongoDB | Tests `registration normalizes email and stores only a salted cost-12 hash`, `unexpected errors hide stack, file paths, and secrets`. Deployment must provide secret storage |
 | Container and CI/CD risks | Version-pinned base images, production-only API dependencies, non-root API, read-only filesystems, `no-new-privileges`, verified upstream TLS, locked installs, blocking Semgrep, artifacts free of secrets | Compose smoke test and run artifacts. Images are built but not pushed or deployed, and the workflow still requests an unused `security-events: write` permission |
 
@@ -438,7 +438,7 @@ Final runtime audits: **backend 0 vulnerabilities; frontend 0 vulnerabilities**.
 - Admin accounts require deliberate operator provisioning; there is intentionally no public admin registration path.
 - ZAP did not retain role-specific JWT sessions for protected workflows. Backend tests, Newman and the real Atlas smoke verify authenticated RBAC/IDOR; unauthenticated crawling alone does not verify those permissions.
 - Logout revokes the token server-side (SHA-256 of its `jti` in MongoDB until expiry). Revocation is checked on every authenticated request, so a MongoDB outage rejects requests rather than allowing a revoked token.
-- Cloud log receipt is **not yet verified**. The exporter is implemented and tested, but provider evidence is pending (see [cloud logging evidence](docs/CLOUD-LOGGING-EVIDENCE.md)).
+- Cloud log receipt was verified on 8 November 2026 against a free Better Stack source using synthetic accounts, with screenshots in the shared evidence document (see [cloud logging evidence](docs/CLOUD-LOGGING-EVIDENCE.md)). The source token is kept outside Git, and the export is best-effort with bounded retries, so events can be lost if the provider is unreachable.
 - OWASP ZAP was run on 2026-10-11 against the Part 2 API. It has not been repeated against the Part 3 container stack.
 - Semgrep uses nine repository-owned rules rather than a registry rule pack, so a clean result shows those patterns are absent, not that no weakness exists.
 - Account lockout can be used to lock out a known email for 15 minutes. IP rate limiting and the short window limit the impact.
@@ -526,7 +526,7 @@ The UI includes responsive Gig cards, role-aware/mobile-friendly navigation, loa
 | Backend runtime audit | 0 vulnerabilities |
 | Frontend runtime audit | 0 vulnerabilities |
 | Docker, Playwright, Semgrep | Verified in GitHub Actions only. Docker Desktop was not running during the local audit |
-| Cloud log receipt | **Pending** |
+| Cloud log receipt | Verified in Better Stack on 8 Nov 2026 (login, failed login, lockout, booking, transaction, error, revocation, request-ID search) |
 | Atlas end-to-end | PASS in Part 2 (October 2026); not repeated for Part 3 |
 | RBAC / ownership | PASS |
 | OpenAPI | Valid 3.0.3 contract; 15 paths |
