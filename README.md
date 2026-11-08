@@ -49,7 +49,7 @@ Local results were recorded on 8 November 2026. Docker, Playwright and Semgrep r
 - [Cloud logging setup and evidence](HustleHub/docs/CLOUD-LOGGING-EVIDENCE.md) lists the log events and records what the cloud provider has actually received. Provider receipt in Better Stack was verified on 8 November 2026.
 - [Demonstration guide](HustleHub/docs/PART3-DEMO-GUIDE.md) gives the recording sequence. The video link will be added here after the group recording: *pending*.
 - [Lecturer's submission checklist](HustleHub/docs/PART3-SUBMISSION.md) shows where each requirement is evidenced and what remains.
-- [Sources and AI-use declaration](HustleHub/docs/SOURCES-AND-AI-DECLARATION.md) lists references and each member's disclosed AI assistance.
+- [Sources and AI-use declaration](HustleHub/docs/SOURCES-AND-AI-DECLARATION.md) lists references.
 
 ## Known limitations
 
