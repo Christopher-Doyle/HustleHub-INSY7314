@@ -1,4 +1,5 @@
 const { ApiError } = require('../utils/http.cjs');
+const { log } = require('../utils/logger.cjs');
 
 function publicBooking(booking) {
   const value = typeof booking.toObject === 'function' ? booking.toObject() : booking;
@@ -45,8 +46,11 @@ function createBookingService(Booking, Gig, transactionService) {
         transaction = await transactionService.createForBooking(booking);
       } catch (error) {
         await Booking.deleteOne({ _id: booking._id }).catch(() => {});
+        log('error', 'booking_transaction_failed', { bookingId: booking.id, clientId, gigId });
         throw new ApiError(500, 'BOOKING_FAILED', 'The booking could not be completed. Please try again.');
       }
+
+      log('info', 'booking_created', { bookingId: booking.id, transactionId: transaction.id, clientId, freelancerId: String(gig.freelancerId), gigId });
 
       return { booking: publicBooking(booking), transaction };
     },

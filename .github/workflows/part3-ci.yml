@@ -1,0 +1,82 @@
+name: Part 3 DevSecOps
+on: { push: { branches: [main, 'feat/**'] }, pull_request: { branches: [main] } }
+permissions: { contents: read, security-events: write }
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 24, cache: npm, cache-dependency-path: "HustleHub/**/package-lock.json" }
+      - run: npm ci
+        working-directory: HustleHub
+      - run: npm run setup
+        working-directory: HustleHub
+      - run: npm test
+        working-directory: HustleHub
+      - run: npm run openapi:validate
+        working-directory: HustleHub
+      - run: npm run test:postman
+        working-directory: HustleHub
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: HustleHub
+      - run: npm ci
+        working-directory: HustleHub/client
+      - run: npm test
+        working-directory: HustleHub/client
+      - run: npm run build
+        working-directory: HustleHub/client
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: HustleHub/client
+      - name: Install Chromium for browser integration tests
+        run: npx playwright install --with-deps chromium
+        working-directory: HustleHub/client
+      - run: docker compose config --quiet
+        working-directory: HustleHub
+      - run: docker compose build
+        working-directory: HustleHub
+      - run: docker compose up -d --wait
+        working-directory: HustleHub
+      - name: Verify HTTPS over IPv4 inside Nginx
+        run: docker compose exec -T client wget --no-check-certificate -S -O /dev/null https://127.0.0.1:8443/
+        working-directory: HustleHub
+      - if: failure()
+        name: Show sanitised container diagnostics
+        shell: bash
+        working-directory: HustleHub
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color mongo api client
+          for id in $(docker compose ps -aq); do
+            docker inspect --format '{{.Name}} exit={{.State.ExitCode}} status={{.State.Status}} health={{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} error={{.State.Error}}' "$id"
+            docker inspect --format '{{if .State.Health}}{{range .State.Health.Log}}health-exit={{.ExitCode}} output={{printf "%q" .Output}}{{println}}{{end}}{{end}}' "$id"
+          done
+      - run: node scripts/docker-smoke.cjs
+        working-directory: HustleHub
+      - name: Run Playwright against the containerised app
+        id: browser
+        run: npm run test:e2e
+        working-directory: HustleHub/client
+      - if: always() && steps.browser.outcome != 'skipped' && steps.browser.outcome != ''
+        uses: actions/upload-artifact@v4
+        with: { name: browser-integration-evidence, path: HustleHub/client/playwright-report, if-no-files-found: error }
+      - if: always()
+        run: |
+          docker compose ps -a > container-runtime.log
+          docker compose logs --no-color >> container-runtime.log
+        working-directory: HustleHub
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: container-runtime-evidence, path: HustleHub/container-runtime.log, if-no-files-found: error }
+      - if: always()
+        run: docker compose down -v
+        working-directory: HustleHub
+  static-analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pipx install semgrep==1.184.0
+      - run: mkdir -p HustleHub/evidence/ci && semgrep scan --config .semgrep.yml --error --json-output=HustleHub/evidence/ci/semgrep.json HustleHub/src HustleHub/client/src
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with: { name: semgrep-static-analysis, path: HustleHub/evidence/ci/semgrep.json, if-no-files-found: error }

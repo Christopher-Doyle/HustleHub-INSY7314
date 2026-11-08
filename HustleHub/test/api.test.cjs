@@ -12,6 +12,8 @@ const { createApp } = require('../src/app.cjs');
 const { loadConfig } = require('../src/config.cjs');
 const { connectDatabase, disconnectDatabase } = require('../src/database.cjs');
 const { User } = require('../src/models/user.cjs');
+const { RevokedToken } = require('../src/models/revokedToken.cjs');
+const { hashJti } = require('../src/services/tokenRevocation.cjs');
 const { requireRole } = require('../src/middleware/requireRole.cjs');
 const { errorHandler } = require('../src/middleware/errorHandler.cjs');
 const cert = fs.readFileSync(path.join(__dirname, '../certs/localhost.pem'));
@@ -104,6 +106,49 @@ test('login produces a signed 15-minute token with identity and role; profile wo
   const profile = await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${token}` });
   assert.equal(profile.status, 200);
   assert.deepEqual(profile.body.data.user, user);
+});
+test('logout revokes the current JWT while a separately issued token remains valid', async () => {
+  const first = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
+  const second = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
+  const revokedToken = first.body.data.token;
+  const activeToken = second.body.data.token;
+  assert.equal((await request('POST', '/api/auth/logout', undefined, { authorization: `Bearer ${revokedToken}` })).status, 200);
+  assert.equal((await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${revokedToken}` })).status, 401);
+  assert.equal((await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${activeToken}` })).status, 200);
+  const claims = jwt.decode(revokedToken);
+  const stored = await RevokedToken.findOne({}).select('+jtiHash');
+  assert.equal(stored.jtiHash, hashJti(claims.jti));
+  assert.ok(!JSON.stringify(stored.toObject()).includes(revokedToken));
+
+  const secondInstance = https.createServer({ key, cert, minVersion: 'TLSv1.2' }, await createApp(config, { User, rateLimitMax: 200 }));
+  await new Promise(resolve => secondInstance.listen(0, '127.0.0.1', resolve));
+  try {
+    const restarted = await request('GET', '/api/auth/me', undefined, { authorization: `Bearer ${revokedToken}` }, secondInstance.address().port);
+    assert.equal(restarted.status, 401);
+  } finally { await new Promise(resolve => secondInstance.close(resolve)); }
+});
+test('five failed passwords lock an account and block the correct password', async () => {
+  const lockEmail = 'lockout@example.com';
+  await request('POST', '/api/auth/register', { ...credentials, email: lockEmail });
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const response = await request('POST', '/api/auth/login', { email: lockEmail, password: randomBytes(24).toString('hex') });
+    assert.equal(response.status, 401);
+  }
+  const locked = await request('POST', '/api/auth/login', { email: lockEmail, password: credentials.password });
+  assert.equal(locked.status, 401);
+  assert.equal(locked.body.error.code, 'INVALID_CREDENTIALS');
+});
+test('concurrent failures are counted atomically and an expired lock recovers safely', async () => {
+  const email = 'concurrent-lockout@example.com';
+  await request('POST', '/api/auth/register', { ...credentials, email });
+  await Promise.all(Array.from({ length: 5 }, () => request('POST', '/api/auth/login', { email, password: randomBytes(24).toString('hex') })));
+  assert.equal((await request('POST', '/api/auth/login', { email, password: credentials.password })).status, 401);
+  await User.updateOne({ email }, { $set: { lockedUntil: new Date(Date.now() - 1000) } });
+  const recovered = await request('POST', '/api/auth/login', { email, password: credentials.password });
+  assert.equal(recovered.status, 200);
+  const stored = await User.findOne({ email }).select('+failedLoginAttempts +lockedUntil');
+  assert.equal(stored.failedLoginAttempts, 0);
+  assert.equal(stored.lockedUntil, null);
 });
 test('unknown accounts and wrong passwords have identical safe 401 errors', async () => {
   const wrongPassword = randomBytes(24).toString('hex');
@@ -223,4 +268,25 @@ test('admin overview is admin-only and public registration cannot create admins'
   const forbidden = await request('GET', '/api/admin/overview', undefined, { authorization: `Bearer ${freelancerLogin.body.data.token}` });
   assert.equal(forbidden.status, 403);
   assert.equal((await request('GET', '/api/admin/overview')).status, 401);
+});
+test('service-level security events carry the request ID and never log credentials', async t => {
+  const email = 'log-correlation@example.com';
+  const password = randomBytes(24).toString('hex');
+  await request('POST', '/api/auth/register', { ...credentials, email, password });
+  const lines = [];
+  t.mock.method(console, 'log', line => lines.push(String(line)));
+  const failed = await request('POST', '/api/auth/login', { email, password: randomBytes(24).toString('hex') });
+  const success = await request('POST', '/api/auth/login', { email, password });
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const events = lines.map(line => JSON.parse(line));
+  const failure = events.find(entry => entry.event === 'authentication_failed');
+  const succeeded = events.find(entry => entry.event === 'authentication_succeeded');
+  assert.equal(failure.requestId, failed.headers['x-request-id']);
+  assert.equal(succeeded.requestId, success.headers['x-request-id']);
+  assert.equal(events.filter(entry => entry.event === 'authentication_attempt').length, 2);
+  assert.ok(events.every(entry => entry.event !== 'http_request' || !entry.path.includes('/auth/login')));
+  const serialised = lines.join('\n');
+  assert.equal(serialised.includes(password), false);
+  assert.equal(serialised.includes(success.body.data.token), false);
+  assert.equal(serialised.includes(email), false);
 });

@@ -4,10 +4,10 @@ const { requireRole } = require('../middleware/requireRole.cjs');
 const { validateGigInput } = require('../middleware/validateGigInput.cjs');
 const { createGigController } = require('../controllers/gigController.cjs');
 
-function gigRoutes(service, User, config, mutationLimiter) {
+function gigRoutes(service, User, config, mutationLimiter, tokenRevocation) {
   const router = Router();
   const controller = createGigController(service);
-  const authenticate = protect(User, config);
+  const authenticate = protect(User, config, tokenRevocation);
   // Browsing is public: only safe gig fields are returned by the service.
   router.get('/', controller.list);
   // Must be registered before '/:id' so "mine" is not treated as a gig id.

@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
-  title: HustleHub+ Part 2 API
-  version: 2.0.0
+  title: HustleHub+ Final POE API
+  version: 3.0.0
   description: Secure freelance marketplace API. All non-health endpoints return the standard success/error envelope.
 servers:
   - url: https://localhost:4000
@@ -56,6 +56,14 @@ paths:
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: Current user, content: { application/json: { schema: { $ref: '#/components/schemas/UserResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Revoke the current bearer token
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Token revoked }
         '401': { $ref: '#/components/responses/Unauthenticated' }
   /api/gigs:
     get:
@@ -188,6 +196,15 @@ paths:
         '200': { description: Income summary, content: { application/json: { schema: { $ref: '#/components/schemas/IncomeResponse' } } } }
         '401': { $ref: '#/components/responses/Unauthenticated' }
         '403': { $ref: '#/components/responses/Forbidden' }
+  /api/income/me/insights:
+    get:
+      tags: [Transactions]
+      summary: Get authenticated freelancer income, monthly earnings, and estimated tax
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Financial dashboard insights, content: { application/json: { schema: { $ref: '#/components/schemas/FinancialInsightsResponse' } } } }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
   /api/admin/overview:
     get:
       tags: [Admin]
@@ -301,5 +318,6 @@ components:
     BookingListResponse: { type: object, properties: { success: { type: boolean }, data: { type: object, properties: { bookings: { type: array, items: { $ref: '#/components/schemas/Booking' } } } } } }
     TransactionListResponse: { type: object, properties: { success: { type: boolean }, data: { type: object, properties: { transactions: { type: array, items: { $ref: '#/components/schemas/Transaction' } } } } } }
     IncomeResponse: { type: object, properties: { success: { type: boolean }, data: { type: object, properties: { totalIncome: { type: number }, transactionCount: { type: integer } } } } }
+    FinancialInsightsResponse: { type: object, properties: { success: { type: boolean }, data: { type: object, properties: { lifetimeEarnings: { type: number }, taxYearEarnings: { type: number }, yearToDateEarnings: { type: number }, estimatedAnnualTaxableIncome: { type: number }, grossIncome: { type: number }, estimatedTax: { type: number }, estimatedAfterTax: { type: number }, effectiveRate: { type: number }, transactionCount: { type: integer }, taxYear: { type: string }, reportingPeriod: { type: object, properties: { start: { type: string, format: date }, end: { type: string, format: date }, asOf: { type: string, format: date-time } } }, monthly: { type: array, items: { type: object, properties: { month: { type: string }, income: { type: number } } } }, disclaimer: { type: string }, source: { type: string, format: uri } } } } }
     AdminOverviewResponse: { type: object, properties: { success: { type: boolean }, data: { type: object, properties: { users: { type: integer }, clients: { type: integer }, freelancers: { type: integer }, admins: { type: integer }, gigs: { type: integer }, bookings: { type: integer }, transactions: { type: integer } } } } }
     ErrorResponse: { type: object, required: [success, error, requestId], properties: { success: { type: boolean, enum: [false] }, error: { type: object, properties: { code: { type: string }, message: { type: string }, details: { type: array, items: { type: string } } } }, requestId: { type: string } } }

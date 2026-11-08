@@ -8,7 +8,7 @@ async function main() {
   const config = loadConfig();
   await connectDatabase(config.mongodbUri, { dnsServers: config.mongodbDnsServers });
   const app = await createApp(config);
-  const certDir = path.join(__dirname, '..', 'certs');
+  const certDir = process.env.TLS_CERT_DIR || path.join(__dirname, '..', 'certs');
   const server = https.createServer({ key: fs.readFileSync(path.join(certDir, 'localhost-key.pem')), cert: fs.readFileSync(path.join(certDir, 'localhost.pem')), minVersion: 'TLSv1.2' }, app);
   server.on('error', () => { console.error('Unable to start HTTPS server. Check that the configured port is available.'); process.exitCode = 1; });
   server.listen(config.port, config.host, () => console.log(`HustleHub+ HTTPS API: https://localhost:${config.port}\nMongoDB persistence is connected.`));

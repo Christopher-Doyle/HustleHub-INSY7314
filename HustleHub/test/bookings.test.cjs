@@ -171,6 +171,29 @@ test('freelancer income and transaction history include only that freelancer\'s 
   assert.equal(incomeB.body.data.totalIncome, 1000);
 });
 
+test('financial insights separate lifetime earnings from the exact 2027 tax-year boundaries', async () => {
+  const freelancer = await registerAndLogin({ role: 'freelancer' });
+  const client = await registerAndLogin({ role: 'client' });
+  const cases = [
+    ['Before year', 100, '2026-02-28T23:59:59.999Z'],
+    ['Year opens', 200, '2026-03-01T00:00:00.000Z'],
+    ['Year closes', 300, '2027-02-28T23:59:59.999Z'],
+    ['After year', 400, '2027-03-01T00:00:00.000Z']
+  ];
+  for (const [title, price, createdAt] of cases) {
+    const gig = await makeGig(freelancer.user, { title, price });
+    const booked = await request('POST', '/api/bookings', { gigId: String(gig._id) }, { authorization: `Bearer ${client.token}` });
+    await Transaction.collection.updateOne({ _id: new (require('mongoose').Types.ObjectId)(booked.body.data.transaction.id) }, { $set: { createdAt: new Date(createdAt) } });
+  }
+  const response = await request('GET', '/api/income/me/insights', undefined, { authorization: `Bearer ${freelancer.token}` });
+  assert.equal(response.status, 200);
+  assert.equal(response.body.data.lifetimeEarnings, 1000);
+  assert.equal(response.body.data.taxYearEarnings, 500);
+  assert.equal(response.body.data.estimatedAnnualTaxableIncome, 500);
+  assert.equal(response.body.data.transactionCount, 2);
+  assert.deepEqual(response.body.data.monthly.map(item => item.month), ['2026-03', '2027-02']);
+});
+
 test('a client cannot read another client\'s booking history via query manipulation', async () => {
   // There is no bookings-by-id route that trusts a client-supplied owner id —
   // /me always derives ownership from the authenticated token, so this is
