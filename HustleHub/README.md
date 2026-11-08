@@ -1,6 +1,16 @@
 # HustleHub+ — INSY7314 Final POE
 
-> **Final POE / Part 3:** This branch adds a SARS-based financial dashboard, structured security logging, account lockout, JWT logout revocation, Docker orchestration and automated DevSecOps verification.
+> **Final POE submission (Parts 1–3).** HustleHub+ is a MERN freelance marketplace. Freelancers publish gigs, clients book them, a booking creates a simulated transaction, and the freelancer sees income and an estimated South African tax position. Part 3 added the tax dashboard, structured security logging, account lockout, persistent JWT revocation, Docker Compose, GitHub Actions and Semgrep. The repository root [README](../README.md) is the quick start. This file is the full reference.
+
+## What was built in each part
+
+| Part | Scope | Where to look |
+|---|---|---|
+| 1 | Secure foundation: registration, login with bcrypt, JWT validation, roles, MongoDB models, HTTPS, security headers, rate limiting | [Security controls](#security-controls), `test/api.test.cjs`, `test/models.test.cjs` |
+| 2 | Gig CRUD with ownership, client booking, automatic transaction, freelancer income, admin overview, OpenAPI, Newman, OWASP ZAP | [Application workflow](#application-workflow), [API routes](#api-routes), [Postman and Newman](#postman-and-newman), [OWASP ZAP](#owasp-zap-security-testing) |
+| 3 | Tax and income dashboard, CI/CD, static analysis, Docker, logging, account lockout, JWT revocation, security review | The sections below, the [rubric audit](docs/RUBRIC-AUDIT.md) and the [submission checklist](docs/PART3-SUBMISSION.md) |
+
+Submission links: [GitHub repository](https://github.com/Christopher-Doyle/HustleHub-INSY7314) · demonstration video: *to be added after the group recording* · [sources and AI-use declaration](docs/SOURCES-AND-AI-DECLARATION.md).
 
 ## Part 3 financial insights
 
@@ -12,8 +22,8 @@ The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 
 
 - `docker compose up --build --wait` runs MongoDB, the non-root API, and an HTTPS Nginx frontend/reverse proxy with read-only application filesystems and `no-new-privileges`. Browser `/api` traffic remains same-origin and Nginx verifies the API certificate.
 - `.github/workflows/part3-ci.yml` performs locked installs, backend/frontend tests, React build, production audit gates, Compose validation, image builds, a disposable full-stack runtime smoke flow and blocking Semgrep OSS analysis. Evidence is uploaded as Actions artifacts.
-- JSON logs include timestamp, level, event, request ID, route, status, duration, actor ID and a one-way client fingerprint. Login, booking and financial routes receive explicit events. Request bodies, passwords, tokens, cookies and authorization headers are not logged.
-- Optional HTTPS cloud delivery uses `LOG_EXPORT_URL`, `LOG_EXPORT_TOKEN` and `LOG_EXPORT_TIMEOUT_MS`. The JSON/Bearer format is compatible with Better Stack's free-tier HTTP log source (use its assigned HTTPS ingest URL and source token) and similar managed endpoints. Export has bounded exponential retries and is failure-isolated. No provider receipt is claimed until a team-supplied endpoint/token is tested.
+- JSON logs include timestamp, level, event, request ID, route, status, duration, actor ID and a one-way client fingerprint. Login, booking and financial routes receive explicit events, and service-layer events (`authentication_failed`, `account_locked`, `booking_created`, `transaction_created`, `token_revoked`) inherit the request ID of the HTTP request that caused them. Request bodies, passwords, tokens, cookies and authorization headers are not logged. The event catalogue is in [cloud logging setup and evidence](docs/CLOUD-LOGGING-EVIDENCE.md).
+- Optional HTTPS cloud delivery uses `LOG_EXPORT_URL`, `LOG_EXPORT_TOKEN` and `LOG_EXPORT_TIMEOUT_MS`. The JSON/Bearer format matches the [Better Stack HTTP ingestion API](https://betterstack.com/docs/logs/ingesting-data/http/logs/) (use its assigned HTTPS ingesting host and source token). Exported copies also carry `dt` (event time) and `message` (event name). Export has bounded exponential retries and is failure-isolated. **No provider receipt is claimed until the evidence table in the cloud logging document contains real, dated observations.**
 
 ## New Part 3 security controls
 
@@ -25,24 +35,25 @@ The estimator includes transactions from exactly 1 March 2026 00:00 UTC through 
 
 | Threat | Implemented protection | Evidence / residual limitation |
 |---|---|---|
-| Injection | Strict field/type allowlists, server-owned IDs, no raw query objects | API/Gig tests; update validation for new fields |
-| XSS | React escaping, CSP and validation | Frontend tests/prior ZAP; retest deployed CSP |
-| Authentication | bcrypt, generic invalid-credential errors, IP rate limits, short JWT expiry, atomic lockout, persistent hashed revocation | Lockout can still be abused against a known account; the 15-minute window limits impact |
-| Broken access control | JWT, RBAC, ownership and financial isolation | Backend RBAC tests; admins remain privileged |
-| Misconfiguration | HTTPS, Helmet/CSP, CORS, validated env, ignored secrets, hardened Docker | Local certificate is development-only |
-| Dependencies | Lockfiles, production audit gates and blocking Semgrep OSS | Newman dev tree reported separately |
-| Monitoring | Business-layer events, correlation, redaction, bounded HTTPS exporter | Cloud provider receipt requires a configured external endpoint |
-| Sensitive data | Excluded hashes, ignored secrets/keys, log redaction | Deployment must provide secret storage |
+| Injection | Strict field/type allowlists, server-owned IDs, no raw query objects, literal-text search, Semgrep `mongodb-where-operator` and `javascript-eval` rules | Tests `operator, nested and script-style input is rejected…`, `regex characters in search are treated as literal text`; ZAP null-byte finding fixed. Update validation when adding fields |
+| XSS | React escaping, angle-bracket rejection, CSP on both Express and Nginx, Semgrep `react-dangerous-html` rule | Test `validation rejects missing, malicious, unknown…`. The ZAP run predates Part 3 and should be repeated against the container stack |
+| Authentication | bcrypt, generic invalid-credential errors, IP rate limits, short JWT expiry, atomic lockout, persistent hashed revocation | Tests `five failed passwords lock an account…`, `concurrent failures are counted atomically…`, `logout revokes the current JWT…`. Lockout can still be abused against a known account; the 15-minute window limits impact |
+| Broken access control | JWT, database-reloaded roles, ownership filters, financial queries scoped to the token's user | Tests `another freelancer cannot update a gig they do not own`, `freelancer income and transaction history include only that freelancer…`, `RBAC distinguishes…`. Admins remain privileged |
+| Misconfiguration | HTTPS only, Helmet/CSP, exact-origin CORS, validated environment, ignored secrets, `no-store` | Tests `HTTPS certificate is verified; security headers…`, `plain HTTP is refused…`, `insecure JWT configuration fails closed`. Local certificate is development-only |
+| Vulnerable dependencies | Lockfiles, `npm ci`, `npm audit --omit=dev --audit-level=high` for API and client in CI | Both production audits report 0 vulnerabilities. The development-only Newman tree reports advisories and is not shipped |
+| Insufficient logging and monitoring | Business-layer events, request-ID correlation, redaction, bounded HTTPS exporter | Tests in `test/logging.test.cjs` and `service-level security events carry the request ID…`. Provider receipt is pending (see cloud logging evidence) |
+| Sensitive data exposure | `passwordHash` excluded from queries, ignored secrets and keys, log key redaction, hashed token IDs in MongoDB | Tests `registration normalizes email and stores only a salted cost-12 hash`, `unexpected errors hide stack, file paths, and secrets`. Deployment must provide secret storage |
+| Container and CI/CD risks | Version-pinned base images, production-only API dependencies, non-root API, read-only filesystems, `no-new-privileges`, verified upstream TLS, locked installs, blocking Semgrep, artifacts free of secrets | Compose smoke test and run artifacts. Images are built but not pushed or deployed, and the workflow still requests an unused `security-events: write` permission |
 
 See `docs/PART3-IMPLEMENTATION-CHECKLIST.md`, `docs/PART3-DEMO-GUIDE.md` and `evidence/part3-static-analysis.md`.
 
 The [lecturer's submission checklist](docs/PART3-SUBMISSION.md) includes Playwright instructions and the evidence handoff. See [sources and AI-use declaration](docs/SOURCES-AND-AI-DECLARATION.md) for research, attribution and disclosure.
 
-The [verified Part 3 workflow](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42372224995) passed the application regressions, production audits, Docker Compose startup, the HTTPS smoke flow and Semgrep. Its container logs and static-analysis JSON are linked from the implementation checklist.
+The team reports that [workflow run 42374523350](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42374523350) on `main` passed backend and frontend tests, Newman, Playwright, production audits, Docker Compose startup, the HTTPS smoke flow and Semgrep. [Run 42372224995](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42372224995) is the earlier run that first passed without browser tests and is kept as history. Artifacts are listed in the [implementation checklist](docs/PART3-IMPLEMENTATION-CHECKLIST.md). Re-run the workflow after any later change and cite that run.
 
 A secure MERN freelance marketplace using MongoDB, Express, React and Node.js.
 
-HustleHub+ is a secure freelance marketplace where freelancers publish Gigs and clients book them. A confirmed booking automatically creates a transaction, and freelancers can review related bookings, transaction history and income. The integrated Part 2 submission includes a React frontend, Express HTTPS API, MongoDB persistence, JWT authentication, role-based access control, automated tests, Postman/Newman regression testing and a reproducible OWASP ZAP workflow.
+HustleHub+ is a secure freelance marketplace where freelancers publish Gigs and clients book them. A confirmed booking automatically creates a transaction, and freelancers can review related bookings, transaction history and income. The integrated submission includes a React frontend, Express HTTPS API, MongoDB persistence, JWT authentication, role-based access control, automated tests, Postman/Newman regression testing and a reproducible OWASP ZAP workflow.
 
 ## Implemented functionality
 
@@ -176,7 +187,7 @@ The frontend optionally supports `VITE_API_BASE_URL`; local development should l
 2. Copy its assigned HTTPS ingest URL into local/deployment secret `LOG_EXPORT_URL`.
 3. Store the source token as secret `LOG_EXPORT_TOKEN`; never place either value in source control or screenshots.
 4. Keep `LOG_EXPORT_TIMEOUT_MS=2000` unless the provider requires a smaller limit.
-5. Restart the API, perform a disposable login and booking, then verify `authentication_succeeded`, `booking_created`, `transaction_created` and request/error events in Live Tail.
+5. Restart the API, run `npm run demo:log-events` (or perform a disposable login and booking by hand), then verify `authentication_succeeded`, `booking_created`, `transaction_created` and request/error events in Live Tail.
 6. Confirm the received records contain request IDs but no passwords, JWTs, authorization headers, email addresses or names.
 
 Console JSON remains available when no exporter is configured. Export requests have a fixed timeout and two bounded exponential retries; events are not buffered in an unbounded in-memory queue, and exporter failure never fails marketplace operations.
@@ -281,7 +292,7 @@ npm.cmd test
 
 The suite covers authentication, hashing, JWT validation, CORS, headers, Gig CRUD, ownership, malicious input, booking, transaction, income, admin RBAC and rate limits.
 
-Final verified result: **48 total / 48 passed / 0 failed / 0 skipped**, including tampered/expired tokens, database role checks, null-byte rejection, prototype-related fields and model validation.
+Verified locally on 8 November 2026: **64 total / 64 passed / 0 failed / 0 skipped**, including tampered/expired tokens, database role checks, null-byte rejection, prototype-related fields, model validation, tax-year boundaries, lockout, revocation, the tax estimator, the log exporter and log correlation.
 
 Frontend tests:
 
@@ -292,7 +303,7 @@ npm.cmd test
 
 They cover API handling, validation, Gig marketplace and management interactions, booking and income states.
 
-Final verified result: **75 total / 75 passed / 0 failed**, across 11 files, including authentication/session, role-aware navigation, create/edit/delete interactions and error handling.
+Verified locally on 8 November 2026: **77 total / 77 passed / 0 failed**, across 12 files, including authentication/session, role-aware navigation, create/edit/delete interactions, the income dashboard and error handling.
 
 Production build:
 
@@ -302,6 +313,34 @@ npm.cmd run build
 ```
 
 Final production build: **PASS**. Output is `client/dist/`, which is ignored. Vite's development proxy is not a production deployment; production needs configured origins and trusted HTTPS.
+
+## Run with Docker Compose
+
+From `HustleHub`, with Docker Desktop running:
+
+```sh
+npm run setup
+docker compose up --build --wait
+```
+
+`npm run setup` creates `.env` and the development certificate, which Compose mounts into the containers. The stack has three services: `mongo` (MongoDB 7.0.41), `api` (Express over HTTPS, non-root) and `client` (Nginx serving the React build and proxying `/api` with upstream certificate verification). Open https://localhost:5173 and accept the self-signed development certificate. Check the services with `docker compose ps`. `https://localhost:5173/api/health` should return `status: ok`. Run the full flow check with `node scripts/docker-smoke.cjs`, then stop with `docker compose down` (add `-v` to delete the database volume).
+
+## Browser tests (Playwright)
+
+With the Compose stack running:
+
+```sh
+cd client
+npm ci
+npx playwright install chromium
+npm run test:e2e
+```
+
+The single scenario registers a freelancer and a client, creates and books a gig, checks access boundaries and confirms the transaction, tax estimate and monthly chart. Use a disposable Compose database. The HTML report is written to `client/playwright-report` and CI uploads it as `browser-integration-evidence`.
+
+## Continuous integration and static analysis
+
+`.github/workflows/part3-ci.yml` runs on pushes to `main` and `feat/**` and on pull requests to `main`. The `verify` job installs with `npm ci`, then runs backend tests, OpenAPI validation, Newman, production audits, frontend tests and build, Chromium install, Compose validation and build, container startup, an in-container HTTPS check, the Docker smoke flow and Playwright. It uploads the Playwright report and container log even on failure. The `static-analysis` job runs Semgrep 1.184.0 with the repository's nine rules from `.semgrep.yml` over `HustleHub/src` and `HustleHub/client/src`, and any finding fails the job. See the [static-analysis evidence](evidence/part3-static-analysis.md) for scope and limits. The separate `Autograde` workflow belongs to the course (see known limitations).
 
 ## Postman and Newman
 
@@ -323,7 +362,7 @@ The collection folders are:
 
 The Newman runner starts isolated HTTPS APIs backed by `mongodb-memory-server`, generates disposable roles/data, and destroys the entire temporary database in `finally`. It does not connect to team Atlas. A minimal private summary is written under ignored `evidence/private/`; no bearer token or password is included.
 
-Final verified result: **52 requests / 226 assertions / 0 failures**. The Part 2 collection covers success and failure cases in the six folders above. Test passwords are generated at runtime. Newman may emit the upstream `fs.F_OK` deprecation warning; it does not cause test failures. The Part 1 collection is retained as historical work.
+Verified locally on 8 November 2026: **55 requests / 239 assertions / 0 failures**. The Part 2 collection covers success and failure cases in the six folders above. Test passwords are generated at runtime. Newman may emit the upstream `fs.F_OK` deprecation warning; it does not cause test failures. The Part 1 collection is retained as historical work.
 
 ## Atlas persistence smoke test
 
@@ -398,7 +437,13 @@ Final runtime audits: **backend 0 vulnerabilities; frontend 0 vulnerabilities**.
 - Booking and transaction creation use a compensating delete when transaction creation fails because `mongodb-memory-server` and standalone MongoDB do not provide replica-set transactions. A production Atlas deployment can migrate this operation to a Mongoose session transaction.
 - Admin accounts require deliberate operator provisioning; there is intentionally no public admin registration path.
 - ZAP did not retain role-specific JWT sessions for protected workflows. Backend tests, Newman and the real Atlas smoke verify authenticated RBAC/IDOR; unauthenticated crawling alone does not verify those permissions.
-- Logout clears the browser session without server-side revocation; existing tokens expire after 15 minutes.
+- Logout revokes the token server-side (SHA-256 of its `jti` in MongoDB until expiry). Revocation is checked on every authenticated request, so a MongoDB outage rejects requests rather than allowing a revoked token.
+- Cloud log receipt is **not yet verified**. The exporter is implemented and tested, but provider evidence is pending (see [cloud logging evidence](docs/CLOUD-LOGGING-EVIDENCE.md)).
+- OWASP ZAP was run on 2026-10-11 against the Part 2 API. It has not been repeated against the Part 3 container stack.
+- Semgrep uses nine repository-owned rules rather than a registry rule pack, so a clean result shows those patterns are absent, not that no weakness exists.
+- Account lockout can be used to lock out a known email for 15 minutes. IP rate limiting and the short window limit the impact.
+- The course `Autograde` workflow cannot find its reusable runner (`EMWCCN/classroom50`) from this repository. Treat it as unresolved until the lecturer confirms the assignment remote.
+- Images are built and smoke-tested in CI but are not pushed to a registry or deployed. There is no hosted environment.
 - Rate-limit state uses process memory, resets on restart and is not shared across API instances.
 - The latest Newman release still brings 19 audit findings through its development-only Postman runtime dependency tree. Both production runtime audits are clean, Newman runs only against the disposable local harness, and no unsafe forced downgrade was applied.
 
@@ -406,9 +451,9 @@ Final runtime audits: **backend 0 vulnerabilities; frontend 0 vulnerabilities**.
 
 | Team member | Contribution |
 |---|---|
-| Christopher Doyle | Atlas/database foundation, shared models, authentication/JWT, RBAC/security and final integration/security work |
-| Daniel Watson | Gig marketplace API/frontend and testing; supplied team name, while Git history also uses `ST10446445` and `Daniel Wilson` |
-| Pabi | Booking, transactions, income, related frontend and testing/evidence work; Git history preserves the Pabi workstream |
+| Christopher Doyle | Atlas/database foundation, shared models, authentication/JWT, RBAC/security. Part 3: tax dashboard, logging, lockout, revocation, Docker, CI/CD, Semgrep, Playwright and final integration |
+| Daniel Wilson (ST10446445) | Gig marketplace API/frontend and testing in Part 2. Part 3: rubric audit, README and security-review corrections, request-ID log correlation, request classification fix, demo log generator, cloud-logging and static-analysis evidence. Git history uses the identities `ST10446445` and `Daniel Wilson` |
+| Pabi (Paballo Nthutang, ST10446382) | Booking, transactions, income, related frontend and testing/evidence work. Git history uses `Paballo Nthutang - ST10446382` and `OrangeSodaShawty`. Part 3 UI and Playwright contributions are recorded in the shared evidence document |
 
 The repository retains the original team branches/merges and subsequent integration, testing, security and documentation commits.
 
@@ -471,18 +516,24 @@ The UI includes responsive Gig cards, role-aware/mobile-friendly navigation, loa
 
 | Check | Result |
 |---|---|
-| Backend automated tests | 48/48 PASS; 0 failed, 0 skipped |
-| Frontend tests | 75/75 PASS |
+| Backend automated tests | 64/64 PASS; 0 failed, 0 skipped (local, 8 Nov 2026) |
+| Frontend tests | 77/77 PASS (local, 8 Nov 2026) |
 | Frontend production build | PASS |
-| Newman | 52 requests / 226 assertions / 0 failures |
-| ZAP Baseline | 0 High / 0 Medium / 0 Low |
+| Newman | 55 requests / 239 assertions / 0 failures (local, 8 Nov 2026) |
+| ZAP Baseline (Part 2 API) | 0 High / 0 Medium / 0 Low |
 | ZAP API final rerun | 0 High / 0 Medium / 0 Low |
 | ZAP Full Active | 0 High / 0 Medium / 0 Low |
 | Backend runtime audit | 0 vulnerabilities |
 | Frontend runtime audit | 0 vulnerabilities |
-| Atlas end-to-end | PASS; Gig-to-income flow, restart persistence and exact disposable cleanup |
+| Docker, Playwright, Semgrep | Verified in GitHub Actions only. Docker Desktop was not running during the local audit |
+| Cloud log receipt | **Pending** |
+| Atlas end-to-end | PASS in Part 2 (October 2026); not repeated for Part 3 |
 | RBAC / ownership | PASS |
-| OpenAPI | Valid 3.0.3 contract; 13 paths |
+| OpenAPI | Valid 3.0.3 contract; 15 paths |
+
+## Tax estimate rules
+
+The estimate follows the SARS 2027 tax-year table (1 March 2026 – 28 February 2027), checked against the [SARS rates page](https://www.sars.gov.za/tax-rates/income-tax/rates-of-tax-for-individuals/) on 8 November 2026. The seven brackets run from 18% to 45%, and the primary rebate is R17,820. `src/services/taxService.cjs` matches the published bracket limits, base amounts and rebate. Below R99,000 the rebate cancels the tax, which matches SARS's under-65 threshold. The result is labelled an estimate, not an assessment, and the API response carries a disclaimer.
 
 ## Recommended demonstration order
 
@@ -502,5 +553,6 @@ The UI includes responsive Gig cards, role-aware/mobile-friendly navigation, loa
 14. Run backend/frontend tests and build.
 15. Run Newman.
 16. Open ZAP evidence and explain null-byte remediation.
+17. Show the Part 3 dashboard, then the cloud logging events, lockout and revocation, CI run, Semgrep artifact and Docker health (see the [demo guide](docs/PART3-DEMO-GUIDE.md)).
 
 Use locally chosen credentials and keep secrets/private reports out of submission source control.
