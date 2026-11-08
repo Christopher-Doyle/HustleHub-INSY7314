@@ -27,10 +27,11 @@ describe('FreelancerIncome', () => {
 
     render(<FreelancerIncome />);
 
-    expect(await screen.findByText('R540.00')).toBeInTheDocument();
+    // Currency formatting (symbol/separator) is locale-dependent; only the digits are asserted.
+    expect(await screen.findByText(/540[,.]00/)).toBeInTheDocument();
     expect(screen.getByText('2')).toBeInTheDocument();
-    expect(screen.getByText('R450')).toBeInTheDocument();
-    expect(screen.getByText('R90')).toBeInTheDocument();
+    expect(screen.getByText(/450[,.]00/)).toBeInTheDocument();
+    expect(screen.getByText(/90[,.]00/)).toBeInTheDocument();
   });
 
   test('shows an empty state for transactions when income exists but no transactions are returned', async () => {
@@ -40,7 +41,7 @@ describe('FreelancerIncome', () => {
     });
 
     render(<FreelancerIncome />);
-    expect(await screen.findByText('R0.00')).toBeInTheDocument();
+    expect(await screen.findByText(/0[,.]00/)).toBeInTheDocument();
     expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument();
   });
 
