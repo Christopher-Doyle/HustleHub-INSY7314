@@ -1,0 +1,79 @@
+# Cloud logging setup and evidence
+
+**Receipt status: NOT YET VERIFIED.** The exporter is implemented and unit-tested, but no provider has been shown to receive HustleHub+ events. Do not change this line until the table at the end contains real, dated observations from the provider's search interface.
+
+## What the application sends
+
+Every log call writes one JSON line to the console. When `LOG_EXPORT_URL` is set, the same event is also POSTed over HTTPS (`src/utils/logger.cjs`).
+
+| Field | Meaning |
+|---|---|
+| `timestamp` / `dt` | ISO-8601 event time. `dt` is added only to the exported copy because Better Stack documents it as the event-time field |
+| `message` | Copy of `event`, added only to the exported copy so the provider's log line is readable |
+| `level` | `info`, `warn` or `error` |
+| `event` | Event name from the catalogue below |
+| `requestId` | UUID generated per request and returned as `X-Request-Id`. Service-layer events inherit it through `AsyncLocalStorage` |
+| `actorId` | Internal user ID when known. No name or email |
+| other fields | Safe identifiers and status values, such as `status`, `durationMs`, `failedAttempts`, `bookingId` |
+
+Keys matching `password`, `token`, `secret`, `authorization`, `cookie`, `email`, `fullName`, `phone` or `address` are replaced with `[REDACTED]` before either output. Request bodies and headers are never logged.
+
+### Event catalogue
+
+| Event | Level | Source | Rubric evidence |
+|---|---|---|---|
+| `authentication_attempt` | info/warn | `requestLogger` for every `/auth/login` response | Login activity |
+| `authentication_failed` | info | `authService.login` | Failed login, with `failedAttempts` |
+| `account_locked` | warn | `authService.login` on the 5th failure | Security feature 1 |
+| `account_lockout_active` | warn | `authService.login` while locked | Security feature 1 |
+| `authentication_succeeded` | info | `authService.login` | Successful login |
+| `booking_event` / `booking_created` | info | `requestLogger` / `bookingService` | Booking |
+| `transaction_created` | info | `transactionService` | Transaction recording |
+| `financial_event` | info | `requestLogger` for `/transactions` and `/income` | Freelancer income access |
+| `token_revoked` | info | `authController.logout` | Security feature 2 |
+| `request_error` / `internal_error` | warn / error | `errorHandler` | Validation and application errors |
+| `log_export_failed` | warn | exporter | Delivery failure, reason only |
+
+## Provider choice
+
+Better Stack Logs (free tier) is the default choice. Its HTTP ingestion API, checked on 8 November 2026 in [Better Stack (2026)](https://betterstack.com/docs/logs/ingesting-data/http/logs/), accepts `POST` to the source's ingesting host with `Authorization: Bearer <source token>` and `Content-Type: application/json`. A single JSON object is a valid body, and `202` means accepted. `dt` overrides the event time. This matches the exporter exactly, so no provider-specific code is needed. Grafana Cloud Loki uses a different push format and would need a new transport, so it is not used.
+
+Do not pay for a plan without group approval. Never paste the token into chat, a commit, an issue or a screenshot.
+
+## Setup (Daniel, on his own account)
+
+1. Create a free Better Stack account and a **Logs** source of type **HTTP**. Name it `hustlehub-demo`.
+2. Open `HustleHub/.env`, which Git ignores, and set the three values from the source page:
+   ```text
+   LOG_EXPORT_URL=https://<ingesting host shown by Better Stack>
+   LOG_EXPORT_TOKEN=<source token>
+   LOG_EXPORT_TIMEOUT_MS=2000
+   ```
+   Use the ingesting host exactly as shown by Better Stack. The exporter refuses anything that is not HTTPS.
+3. Start the stack: `docker compose up --build --wait` from `HustleHub`. The `api` service reads `.env` through `env_file`.
+4. Generate disposable events: `npm run demo:log-events`. It uses only `@example.test` accounts, locks one of them on purpose, and prints request IDs, never passwords or tokens.
+5. In Better Stack open **Live tail** and search. Useful queries: `event:account_locked`, `event:booking_created`, `event:request_error`, and a pasted `requestId` to show correlation between `authentication_failed` and `request_error`.
+6. Before taking screenshots, expand one record of each type and confirm it has no `email`, password, JWT or authorization value. Crop out the source token, ingesting host and account details.
+7. After the demo remove the values from `.env`, or delete the source.
+
+If nothing arrives, check `docker compose logs api` for `log_export_failed`. A `403` means the token is wrong. `402` means the free quota is exhausted. Failures never break the marketplace.
+
+## Evidence log (complete only from real observations)
+
+| # | Event or search | What it proves | Date | Provider | Screenshot file | Rubric item |
+|---|---|---|---|---|---|---|
+| 1 | `authentication_succeeded` | Successful login reaches the provider | pending | Better Stack | pending | Logging |
+| 2 | `authentication_failed` | Failed login with attempt count | pending | Better Stack | pending | Logging |
+| 3 | `account_locked` | Atomic lockout is observable | pending | Better Stack | pending | Security feature 1 |
+| 4 | `booking_created` and `transaction_created` | Business events share one `requestId` | pending | Better Stack | pending | Logging |
+| 5 | `request_error` with `VALIDATION_ERROR` | Application error reaches the provider | pending | Better Stack | pending | Logging |
+| 6 | `token_revoked` | Logout revocation is observable | pending | Better Stack | pending | Security feature 2 |
+| 7 | Search by one `requestId` | Request correlation | pending | Better Stack | pending | Logging |
+
+## Local verification already performed
+
+On 8 November 2026 the isolated API (`npm run security:server`) was driven with `npm run demo:log-events`. Console output contained `authentication_failed`, `authentication_succeeded`, `booking_created`, `transaction_created`, `request_error` and the lockout events. Every named business event carried a `requestId` that matched the response's `X-Request-Id`. A search for `password`, `bearer`, `eyJ` and `@example` in the captured output returned no matches. This is local evidence only. It does not show provider receipt.
+
+## Reference
+
+Better Stack (2026) *Ingesting logs* [online]. Available at: https://betterstack.com/docs/logs/ingesting-data/http/logs/ (Accessed: 8 November 2026).

@@ -17,7 +17,8 @@
     "security:server": "node scripts/security-test-server.cjs",
     "smoke:atlas": "node --env-file=.env scripts/smoke-atlas.cjs",
     "admin:create": "node --env-file=.env scripts/create-admin.cjs",
-    "seed:dev": "node --env-file=.env scripts/seed-dev-gigs.cjs"
+    "seed:dev": "node --env-file=.env scripts/seed-dev-gigs.cjs",
+    "demo:log-events": "node scripts/demo-log-events.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -24,7 +24,7 @@ const { createCorsPolicy } = require('./middleware/corsPolicy.cjs');
 const { errorHandler } = require('./middleware/errorHandler.cjs');
 const { ApiError, success } = require('./utils/http.cjs');
 const { requestLogger } = require('./middleware/requestLogger.cjs');
-const { configureRemoteLogging } = require('./utils/logger.cjs');
+const { configureRemoteLogging, runWithRequestId } = require('./utils/logger.cjs');
 
 async function createApp(config, {
   User = UserModel, Gig = GigModel, Booking = BookingModel, Transaction = TransactionModel, RevokedToken = RevokedTokenModel,
@@ -48,6 +48,8 @@ async function createApp(config, {
   app.use(createCorsPolicy(config.clientOrigins));
   app.use((req, res, next) => req.secure ? next() : next(new ApiError(426, 'HTTPS_REQUIRED', 'Use HTTPS to access this API.')));
   app.use(express.json({ limit: '10kb', strict: false, inflate: false }));
+  // Established after body parsing so the request ID survives into services and database callbacks.
+  app.use((req, res, next) => runWithRequestId(req.id, next));
   const limiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: rateLimitMax, standardHeaders: 'draft-8', legacyHeaders: false,
     handler: (req, res, next) => next(new ApiError(429, 'RATE_LIMITED', 'Too many authentication attempts. Try again in 15 minutes.')) });
   const service = await createAuthService(User, config);

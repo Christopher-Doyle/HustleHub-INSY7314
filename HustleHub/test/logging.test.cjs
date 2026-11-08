@@ -44,3 +44,25 @@ test('cloud exporter retries transient failures with bounded backoff', async () 
   await transport({ event: 'security_event' });
   assert.equal(attempts, 3);
 });
+
+test('remote events include the provider event time and searchable message without changing console output', async t => {
+  const exported = [];
+  const lines = [];
+  t.mock.method(console, 'log', line => lines.push(JSON.parse(line)));
+  setRemoteTransportForTest(async payload => { exported.push(payload); });
+  log('info', 'authentication_succeeded', { requestId: 'req-1', password: 'must-not-leak' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(exported[0].dt, exported[0].timestamp);
+  assert.equal(exported[0].message, 'authentication_succeeded');
+  assert.equal(exported[0].password, '[REDACTED]');
+  assert.equal('dt' in lines[0], false);
+});
+
+test('request classification uses the full path so mounted routers cannot hide business events', () => {
+  const { classify } = require('../src/middleware/requestLogger.cjs');
+  assert.equal(classify('/api/auth/login'), 'authentication_attempt');
+  assert.equal(classify('/api/bookings'), 'booking_event');
+  assert.equal(classify('/api/transactions/me'), 'financial_event');
+  assert.equal(classify('/api/income/me/insights'), 'financial_event');
+  assert.equal(classify('/api/gigs'), 'http_request');
+});
