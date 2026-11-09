@@ -47,7 +47,7 @@ Local results were recorded on 8 November 2026. Docker, Playwright and Semgrep r
 - [GitHub Actions on main](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions?query=branch%3Amain) contains the test, build, Docker smoke and Semgrep runs.
 - [Static-analysis report](HustleHub/evidence/part3-static-analysis.md) explains the rules, scope, limits and the JSON artifact.
 - [Cloud logging setup and evidence](HustleHub/docs/CLOUD-LOGGING-EVIDENCE.md) lists the log events and records what the cloud provider has actually received. Provider receipt in Better Stack was verified on 8 November 2026.
-- [Demonstration guide](HustleHub/docs/PART3-DEMO-GUIDE.md) gives the recording sequence. The video link will be added here after the group recording: *pending*.
+- [Demonstration guide](HustleHub/docs/PART3-DEMO-GUIDE.md) gives the recording sequence. The video link: https://youtu.be/8nqANjeblu8
 - [Lecturer's submission checklist](HustleHub/docs/PART3-SUBMISSION.md) shows where each requirement is evidenced and what remains.
 - [Sources and AI-use declaration](HustleHub/docs/SOURCES-AND-AI-DECLARATION.md) lists references.
 
