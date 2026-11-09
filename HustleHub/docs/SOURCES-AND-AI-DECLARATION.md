@@ -19,5 +19,5 @@ Third-party package versions are listed in the API and client npm lockfiles. Doc
 | Member | Tool and use | Review by the member |
 |---|---|---|
 | Christopher Doyle | None was used | **Christopher **, None was used |
-| Daniel Wilson |None was used | — |
+| Daniel Wilson |None was used | **Daniel **: None was used |
 | Pabi (Paballo Nthutang) | None was used | **Pabi **: None was used |
