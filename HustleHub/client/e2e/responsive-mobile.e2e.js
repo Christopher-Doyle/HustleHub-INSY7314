@@ -22,6 +22,10 @@ for (const viewport of VIEWPORTS) {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: /find the right talent/i })).toBeVisible();
     expect(await hasNoHorizontalOverflow(page)).toBe(true);
+    const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
+    await navigation.getByRole('link', { name: 'HustleHub+' }).focus();
+    await page.keyboard.press('Tab');
+    await expect(navigation.getByRole('link', { name: 'Browse gigs' })).toBeFocused();
     await testInfo.attach(`homepage-${viewport.width}`, { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
   });
 }
@@ -38,7 +42,7 @@ test('the freelancer income dashboard stays usable at 390px (stat cards and char
       success: true,
       data: {
         taxYearEarnings: 540, yearToDateEarnings: 540, estimatedAnnualTaxableIncome: 540,
-        estimatedTax: 54, estimatedAfterTax: 486, effectiveRate: 10,
+        estimatedTax: 0, estimatedAfterTax: 540, effectiveRate: 0,
         lifetimeEarnings: 700, transactionCount: 2, taxYear: 2027,
         monthly: [{ month: '2026-11', income: 540 }],
         disclaimer: 'This is an estimate and not tax advice.', source: 'https://www.sars.gov.za/'
@@ -54,5 +58,5 @@ test('the freelancer income dashboard stays usable at 390px (stat cards and char
   await expect(page.getByRole('heading', { name: 'Income and tax overview' })).toBeVisible();
   await expect(page.getByLabel('Monthly income chart')).toBeVisible();
   expect(await hasNoHorizontalOverflow(page)).toBe(true);
-  await testInfo.attach('income-390', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
+  await testInfo.attach('income-390-mocked-layout', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
 });

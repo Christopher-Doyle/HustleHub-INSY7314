@@ -70,6 +70,8 @@ test('a client booking appears in the freelancer transaction and tax dashboard',
   const now = new Date().toISOString().slice(0, 10);
   if (now >= '2026-03-01' && now <= '2027-02-28') {
     await expect(page.getByText('Estimated tax', { exact: true }).locator('..')).toContainText(/26[\s,]?298/);
+    await expect(page.getByText('Estimated after tax', { exact: true }).locator('..')).toContainText(/218[\s,]?802/);
+    await expect(page.getByText('Tax-year-to-date income:').locator('..')).toContainText(/245[\s,]?100/);
     await expect(page.locator('.bar-fill')).toBeVisible();
   }
   await testInfo.attach('income-dashboard', { body: await page.screenshot({ fullPage: true }), contentType: 'image/png' });
