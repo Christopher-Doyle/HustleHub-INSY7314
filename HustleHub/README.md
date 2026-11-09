@@ -10,7 +10,7 @@
 | 2 | Gig CRUD with ownership, client booking, automatic transaction, freelancer income, admin overview, OpenAPI, Newman, OWASP ZAP | [Application workflow](#application-workflow), [API routes](#api-routes), [Postman and Newman](#postman-and-newman), [OWASP ZAP](#owasp-zap-security-testing) |
 | 3 | Tax and income dashboard, CI/CD, static analysis, Docker, logging, account lockout, JWT revocation, security review | The sections below, the [rubric audit](docs/RUBRIC-AUDIT.md) and the [submission checklist](docs/PART3-SUBMISSION.md) |
 
-Submission links: [GitHub repository](https://github.com/Christopher-Doyle/HustleHub-INSY7314) · demonstration video: *to be added after the group recording* · [sources and AI-use declaration](docs/SOURCES-AND-AI-DECLARATION.md).
+Submission links: [GitHub repository](https://github.com/Christopher-Doyle/HustleHub-INSY7314) · demonstration video: https://youtu.be/8nqANjeblu8 · [sources and AI-use declaration](docs/SOURCES-AND-AI-DECLARATION.md).
 
 ## Part 3 financial insights
 
