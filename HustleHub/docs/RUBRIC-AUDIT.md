@@ -1,5 +1,22 @@
 # Part 3 rubric audit
 
+## Final QA follow-up, 9 November 2026
+
+The [finalisation PR](https://github.com/Christopher-Doyle/HustleHub-INSY7314/pull/10) starts from `main` at `38d8d7a`. That main history contains 80 commits and work from Christopher, Daniel and Pabi under six Git author labels. See the PR checks for fresh test counts, browser screenshots, Docker logs and Semgrep results. Cite a new main-branch run after approval and merge.
+
+| Rubric area | What to verify in the final review | Remaining evidence risk |
+|---|---|---|
+| Income and tax | `src/services/taxService.cjs`, `transactionService.cjs` and `FreelancerIncome.jsx` separate tax-year, year-to-date and lifetime earnings. The real booking test checks the R26 298 estimate on R245 100 within the 2027 tax year | Estimate assumes platform income and the primary rebate. Record the live chart and disclaimer |
+| CI/CD and Docker | `part3-ci.yml` runs backend, frontend, Newman, OpenAPI, production audits, Compose startup, HTTPS, smoke and browser tests. Capture proof from the PR and repeat after merge | Course Autograde is a separate workflow. Its reusable runner requires course-owner access |
+| Static analysis | `.semgrep.yml` contains nine blocking rules. The CI JSON artifact and historical evidence show scope and findings | Custom rules cover selected patterns and cannot establish absence of all vulnerabilities |
+| Logging | `requestLogger.cjs`, `logger.cjs` and the services produce correlated structured events. Daniel recorded Better Stack receipt on 8 November | Keep the group's sanitised provider screenshots and replace the shared document's stale cloud link placeholder |
+| Additional controls | Atomic lockout and MongoDB-backed hashed JWT revocation. `api.test.cjs` exercises concurrent attempts, expiry, cross-instance replay and simulated revocation storage failures | Explain that local logout can still clear the browser during a server outage |
+| Security review and README | Both READMEs link setup, architecture, risk controls, test instructions, evidence, references and AI disclosure | Add the demo link and confirm Classroom50 destination and earlier assessor feedback before submitting |
+
+The booking test failed on the old heading in [run 42508536430](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42508536430). The report's page snapshot showed the new confirmation, matching gig and booking ID. The browser POST returned 201 and the container logged the linked booking and transaction under one request ID. The regression now checks the response, confirmation, and persisted transaction with that same booking ID.
+
+## Earlier team audit
+
 Independent audit by Daniel Wilson (ST10446445) on 8 November 2026 against `main` at commit `a34e9e5`, plus the changes in this branch. The marking categories and weights come from the team's Part 3 brief (Tax and Income Dashboard 20, CI/CD 20, Static Code Analysis 10, Docker 10, Logging 10, Additional Security Features 15, Security Review 10, README 5). The official lecturer rubric text and any feedback on Parts 1 and 2 were **not** available in the repository, so this audit cannot confirm that earlier feedback was addressed. Each member should compare their own marked feedback with the final application.
 
 Scores below are provisional self-assessments of how the evidence would read to a marker. They are not predictions of the awarded mark.

@@ -49,7 +49,7 @@ See `docs/PART3-IMPLEMENTATION-CHECKLIST.md`, `docs/PART3-DEMO-GUIDE.md` and `ev
 
 The [lecturer's submission checklist](docs/PART3-SUBMISSION.md) includes Playwright instructions and the evidence handoff. See [sources and AI-use declaration](docs/SOURCES-AND-AI-DECLARATION.md) for research, attribution and disclosure.
 
-The team reports that [workflow run 42374523350](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42374523350) on `main` passed backend and frontend tests, Newman, Playwright, production audits, Docker Compose startup, the HTTPS smoke flow and Semgrep. [Run 42372224995](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42372224995) is the earlier run that first passed without browser tests and is kept as history. Artifacts are listed in the [implementation checklist](docs/PART3-IMPLEMENTATION-CHECKLIST.md). Re-run the workflow after any later change and cite that run.
+Use the [final QA pull request](https://github.com/Christopher-Doyle/HustleHub-INSY7314/pull/10) and its checks to review the booking regression, dashboard and browser evidence. [Main run 42508536430](https://github.com/Christopher-Doyle/HustleHub-INSY7314/actions/runs/42508536430) exposed a stale Playwright assertion after the booking UI changed. The response and container logs confirmed that the booking and its transaction succeeded. After merging the fix, cite the passing workflow for the exact submission SHA on `main`.
 
 A secure MERN freelance marketplace using MongoDB, Express, React and Node.js.
 

@@ -137,6 +137,31 @@ test('five failed passwords lock an account and block the correct password', asy
   const locked = await request('POST', '/api/auth/login', { email: lockEmail, password: credentials.password });
   assert.equal(locked.status, 401);
   assert.equal(locked.body.error.code, 'INVALID_CREDENTIALS');
+  const account = await User.findOne({ email: lockEmail }).select('+lockedUntil');
+  const remaining = account.lockedUntil.getTime() - Date.now();
+  assert.ok(remaining > 14 * 60_000 && remaining <= 15 * 60_000);
+});
+test('revocation storage failures fail closed and never claim logout succeeded', async t => {
+  const login = await request('POST', '/api/auth/login', { email: credentials.email, password: credentials.password });
+  assert.equal(login.status, 200);
+  const headers = { authorization: `Bearer ${login.body.data.token}` };
+  const lookup = t.mock.method(RevokedToken, 'exists', async () => { throw new Error('simulated storage failure'); });
+  try {
+    const denied = await request('GET', '/api/auth/me', undefined, headers);
+    assert.equal(denied.status, 401);
+    assert.equal(denied.body.error.code, 'UNAUTHENTICATED');
+    assert.doesNotMatch(JSON.stringify(denied.body), /simulated storage failure/);
+  } finally { lookup.mock.restore(); }
+
+  const write = t.mock.method(RevokedToken, 'updateOne', async () => { throw new Error('simulated storage failure'); });
+  try {
+    const logout = await request('POST', '/api/auth/logout', undefined, headers);
+    assert.equal(logout.status, 500);
+    assert.equal(logout.body.error.code, 'INTERNAL_ERROR');
+    assert.doesNotMatch(JSON.stringify(logout.body), /simulated storage failure/);
+  } finally { write.mock.restore(); }
+  assert.equal((await request('POST', '/api/auth/logout', undefined, headers)).status, 200);
+  assert.equal((await request('GET', '/api/auth/me', undefined, headers)).status, 401);
 });
 test('concurrent failures are counted atomically and an expired lock recovers safely', async () => {
   const email = 'concurrent-lockout@example.com';

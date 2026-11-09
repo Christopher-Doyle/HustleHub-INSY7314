@@ -18,6 +18,7 @@ describe('FreelancerIncome', () => {
       if (path === '/api/income/me/insights') return Promise.resolve({
         grossIncome: 540,
         taxYearEarnings: 540,
+        yearToDateEarnings: 450,
         lifetimeEarnings: 700,
         estimatedAnnualTaxableIncome: 540,
         estimatedTax: 54,
@@ -42,6 +43,7 @@ describe('FreelancerIncome', () => {
 
     expect((await screen.findAllByText(/R\s*540,00/)).length).toBeGreaterThan(0);
     expect(screen.getByText(/2 transactions this tax year/i)).toBeInTheDocument();
+    expect(screen.getByText('Tax-year-to-date income:').parentElement).toHaveTextContent(/R\s*450,00/);
     expect(screen.getByText(/R\s*54,00/)).toBeInTheDocument();
     expect(screen.getByText(/R\s*486,00/)).toBeInTheDocument();
     expect(screen.getByLabelText('Monthly income chart')).toBeInTheDocument();
@@ -50,7 +52,7 @@ describe('FreelancerIncome', () => {
 
   test('shows an empty state for transactions when income exists but no transactions are returned', async () => {
     apiClient.get.mockImplementation(path => {
-      if (path === '/api/income/me/insights') return Promise.resolve({ grossIncome: 0, taxYearEarnings: 0, lifetimeEarnings: 0, estimatedAnnualTaxableIncome: 0, estimatedTax: 0, estimatedAfterTax: 0, effectiveRate: 0, transactionCount: 0, taxYear: 2027, monthly: [], disclaimer: 'Estimate only.', source: 'https://www.sars.gov.za/' });
+      if (path === '/api/income/me/insights') return Promise.resolve({ grossIncome: 0, taxYearEarnings: 0, yearToDateEarnings: 0, lifetimeEarnings: 0, estimatedAnnualTaxableIncome: 0, estimatedTax: 0, estimatedAfterTax: 0, effectiveRate: 0, transactionCount: 0, taxYear: 2027, monthly: [], disclaimer: 'Estimate only.', source: 'https://www.sars.gov.za/' });
       return Promise.resolve({ transactions: [] });
     });
 
